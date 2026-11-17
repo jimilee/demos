@@ -1,0 +1,11 @@
+--- best/kernel.py
++++ candidate/kernel.py
+@@ -36,7 +36,7 @@
+  'num_programs': 1,
+  'split': 1,
+  'strategy': 'row',
+- 'use_rsqrt': False}
++ 'use_rsqrt': True}
+ # --- CONFIG END ---
+ 
+ import torch

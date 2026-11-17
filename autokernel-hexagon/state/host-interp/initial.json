@@ -1,0 +1,16 @@
+{
+  "exp_id": "hos0001_baseline",
+  "kernel_sha": "ebdacbbe9f813da727aa38707f09e87a6562eca6d4d2af9af3f143a2f942b502",
+  "config": {
+    "block_h": 0,
+    "hexagon": {},
+    "num_programs": 1,
+    "split": 1,
+    "strategy": "row",
+    "use_rsqrt": false
+  },
+  "metrics": {},
+  "ir": {},
+  "timed": false,
+  "hypothesis": "baseline: simplest row kernel (whole row per block, 1/sqrt, grid=1, backend default options)"
+}

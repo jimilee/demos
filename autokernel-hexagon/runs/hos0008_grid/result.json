@@ -1,0 +1,218 @@
+{
+  "exp_id": "hos0008_grid",
+  "hypothesis": "no VTCM tiling: 8 KB row may not need VTCM staging",
+  "accuracy": [
+    {
+      "case": "perf_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "perf_32x4096",
+      "ok": true,
+      "max_abs_err": 0.000244140625,
+      "max_rel_err": 0.0005319148767739534,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        18,
+        9
+      ],
+      "extra": {
+        "rel_rms_err": 6.930254190730671e-07
+      }
+    },
+    {
+      "case": "val_randn_s11_1x4096",
+      "ok": true,
+      "max_abs_err": 0.000244140625,
+      "max_rel_err": 0.0006930006784386933,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        332
+      ],
+      "extra": {
+        "rel_rms_err": 3.7934679563983537e-06
+      }
+    },
+    {
+      "case": "val_randn_s12_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_randn_s13_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_randn_s14_32x4096",
+      "ok": true,
+      "max_abs_err": 0.001953125,
+      "max_rel_err": 0.0007241129642352462,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        11,
+        2141
+      ],
+      "extra": {
+        "rel_rms_err": 5.550480314162239e-06
+      }
+    },
+    {
+      "case": "val_zeros_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": null
+      }
+    },
+    {
+      "case": "val_small_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_large_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_mixed_4x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_tail_3x4000",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_tail_1x4100",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_tail_2x1000",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    }
+  ],
+  "compile_s": 0.0,
+  "ir": {},
+  "config": {
+    "block_h": 0,
+    "hexagon": {
+      "enableVTCMTiling": false
+    },
+    "num_programs": 1,
+    "split": 1,
+    "strategy": "row",
+    "use_rsqrt": false
+  },
+  "status": "ok",
+  "verdict": "not_judged",
+  "reason": "accuracy PASS on host-interp; performance not judged without a device; best kept",
+  "samples": {},
+  "decision": null
+}

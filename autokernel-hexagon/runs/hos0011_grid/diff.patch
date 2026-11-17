@@ -1,0 +1,13 @@
+--- best/kernel.py
++++ candidate/kernel.py
+@@ -32,8 +32,8 @@
+ 
+ # --- CONFIG BEGIN (search.py may rewrite this block) ---
+ CONFIG = {'block_h': 0,
+- 'hexagon': {},
+- 'num_programs': 1,
++ 'hexagon': {'enableThreadedDispatch': True},
++ 'num_programs': 4,
+  'split': 1,
+  'strategy': 'row',
+  'use_rsqrt': False}

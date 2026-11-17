@@ -1,0 +1,42 @@
+{
+  "M1": {
+    "hvx": {
+      "status": "ok",
+      "note": "",
+      "max_abs_err": 6.103515625e-05,
+      "ir_hash": null,
+      "markers": {},
+      "lowering": "n/a (no compiled IR on this backend)",
+      "samples": []
+    },
+    "hexkl_micro": {
+      "status": "ok",
+      "note": "",
+      "max_abs_err": 6.103515625e-05,
+      "ir_hash": null,
+      "markers": {},
+      "lowering": "n/a (no compiled IR on this backend)",
+      "samples": []
+    }
+  },
+  "M32": {
+    "hvx": {
+      "status": "ok",
+      "note": "",
+      "max_abs_err": 0,
+      "ir_hash": null,
+      "markers": {},
+      "lowering": "n/a (no compiled IR on this backend)",
+      "samples": []
+    },
+    "hexkl_micro": {
+      "status": "ok",
+      "note": "",
+      "max_abs_err": 0,
+      "ir_hash": null,
+      "markers": {},
+      "lowering": "n/a (no compiled IR on this backend)",
+      "samples": []
+    }
+  }
+}

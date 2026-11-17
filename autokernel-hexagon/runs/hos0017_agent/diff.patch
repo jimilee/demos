@@ -1,0 +1,25 @@
+--- best/kernel.py
++++ candidate/kernel.py
+@@ -25,7 +25,7 @@
+ 
+ KERNEL_TYPE = "rmsnorm"
+ 
+-HYPOTHESIS = "baseline: simplest row kernel (whole row per block, 1/sqrt, grid=1, backend default options)"
++HYPOTHESIS = "issue the weight load before the reduction so its DDR/VTCM transfer overlaps the sum"
+ 
+ # Shapes the candidate handles correctly; tail = H not multiple of 64 / not pow2.
+ SUPPORTS_TAIL = True
+@@ -60,12 +60,12 @@
+             offs = tl.arange(0, BLOCK_H)
+             mask = offs < H
+             x = tl.load(x_ptr + base + offs, mask=mask, other=0.0).to(tl.float32)
++            w = tl.load(w_ptr + offs, mask=mask, other=0.0).to(tl.float32)
+             ms = tl.sum(x * x, axis=0) / H
+             if USE_RSQRT:
+                 inv = tl.math.rsqrt(ms + EPS)
+             else:
+                 inv = 1.0 / tl.sqrt(ms + EPS)
+-            w = tl.load(w_ptr + offs, mask=mask, other=0.0).to(tl.float32)
+             tl.store(y_ptr + base + offs, (x * inv * w).to(tl.float16), mask=mask)
+         else:
+             acc = tl.zeros([BLOCK_H], dtype=tl.float32)

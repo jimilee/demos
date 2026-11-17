@@ -1,0 +1,11 @@
+--- best/kernel.py
++++ candidate/kernel.py
+@@ -31,7 +31,7 @@
+ SUPPORTS_TAIL = True
+ 
+ # --- CONFIG BEGIN (search.py may rewrite this block) ---
+-CONFIG = {'block_h': 0,
++CONFIG = {'block_h': 2048,
+  'hexagon': {},
+  'num_programs': 1,
+  'split': 1,

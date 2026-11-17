@@ -1,0 +1,12 @@
+{
+  "env": {
+    "target": "",
+    "soc": "",
+    "triton_rev": "3.9.0@?",
+    "hexmlir_rev": "",
+    "sdk": ""
+  },
+  "started": "2026-11-17T10:21:33",
+  "status": "device_unavailable",
+  "error": "official test not found: test/python/triton/test_softmax.py"
+}

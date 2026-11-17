@@ -1,0 +1,11 @@
+--- best/kernel.py
++++ candidate/kernel.py
+@@ -32,7 +32,7 @@
+ 
+ # --- CONFIG BEGIN (search.py may rewrite this block) ---
+ CONFIG = {'block_h': 0,
+- 'hexagon': {},
++ 'hexagon': {'enableHexagonmemCopyToDMA': True},
+  'num_programs': 1,
+  'split': 1,
+  'strategy': 'row',

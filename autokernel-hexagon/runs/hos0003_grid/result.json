@@ -1,0 +1,216 @@
+{
+  "exp_id": "hos0003_grid",
+  "hypothesis": "chunked H=2048: smaller live vector, but x re-read",
+  "accuracy": [
+    {
+      "case": "perf_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "perf_32x4096",
+      "ok": true,
+      "max_abs_err": 0.0009765625,
+      "max_rel_err": 0.000776397529989481,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        16,
+        2855
+      ],
+      "extra": {
+        "rel_rms_err": 3.157999505246802e-06
+      }
+    },
+    {
+      "case": "val_randn_s11_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_randn_s12_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_randn_s13_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_randn_s14_32x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_zeros_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": null
+      }
+    },
+    {
+      "case": "val_small_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_large_1x4096",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_mixed_4x4096",
+      "ok": true,
+      "max_abs_err": 7.62939453125e-06,
+      "max_rel_err": 0.0006195786991156638,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        360
+      ],
+      "extra": {
+        "rel_rms_err": 6.358473167815495e-08
+      }
+    },
+    {
+      "case": "val_tail_3x4000",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_tail_1x4100",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    },
+    {
+      "case": "val_tail_2x1000",
+      "ok": true,
+      "max_abs_err": 0.0,
+      "max_rel_err": 0.0,
+      "n_bad": 0,
+      "note": "",
+      "worst_index": [
+        0,
+        0
+      ],
+      "extra": {
+        "rel_rms_err": 0.0
+      }
+    }
+  ],
+  "compile_s": 0.0,
+  "ir": {},
+  "config": {
+    "block_h": 2048,
+    "hexagon": {},
+    "num_programs": 1,
+    "split": 1,
+    "strategy": "row",
+    "use_rsqrt": false
+  },
+  "status": "ok",
+  "verdict": "not_judged",
+  "reason": "accuracy PASS on host-interp; performance not judged without a device; best kept",
+  "samples": {},
+  "decision": null
+}
