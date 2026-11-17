@@ -134,6 +134,9 @@ class HexagonRunner:
             raise RuntimeError(f"missing environment variables for Hexagon execution: {missing}")
         if os.environ.get("RUN_ON_SIM", "0") != "0":
             raise RuntimeError("RUN_ON_SIM is set: simulator runs are not device measurements")
+        from .tritonenv import prefer_in_tree_backends
+
+        prefer_in_tree_backends()  # ignore stale dist-info entry points (e.g. a triton-3.7.1 wheel)
         import triton
         from triton.backends.qcom_hexagon_backend.driver import HexagonDriver
 

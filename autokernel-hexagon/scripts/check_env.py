@@ -37,6 +37,19 @@ def main():
     print("device execution possible:", not info["missing_for_device"])
     for m in info["missing_for_device"]:
         print("  missing:", m)
+    ti = info.get("triton_install", {})
+    if ti.get("issues"):
+        print("\ntriton install (TRITON_BACKENDS_IN_TREE=%s, imported from %s):"
+              % (ti.get("TRITON_BACKENDS_IN_TREE"), ti.get("imported_triton_dir")))
+        for d in ti.get("distributions", []):
+            print(f"  dist: {d['name']}=={d['version']}  editable={d['editable']}  {d['location']}")
+        for i in ti["issues"]:
+            print("  issue:", i)
+        print("  hint: a non-editable triton wheel next to the hexagon-mlir editable build (version 3.7.0) is"
+              " usually pulled in by a CUDA torch. In-tree discovery (default here) ignores its entry points;"
+              " to remove it: `pip uninstall triton` only if `pip show triton` does NOT point into"
+              " hexagon-mlir/triton, then reinstall the editable build (scripts/build_triton.sh) and"
+              " use torch==2.13.0+cpu (ci/torch-requirements.txt).")
     return 0 if not info["missing_for_device"] else 2
 
 

@@ -216,6 +216,24 @@ python search.py --backend host-interp try --hypothesis "..."
 python bench_linear.py --backend host-interp
 ```
 
+### 7.5 문제 해결: `No module named 'triton.backends.amd'`
+
+Hexagon-MLIR이 고정한 Triton(`a9ced83`)은 **3.7.0**이고, `pip install -e .`로
+editable 설치된다. 이 Triton은 entry point(`triton.backends` 그룹)로 backend를 찾는다.
+같은 환경에 **다른 Triton 배포판**(예: CUDA torch가 끌어온 PyPI `triton-3.7.1.dist-info`)이
+있으면, 그 dist-info의 `amd`/`nvidia` entry point가 섞여 import가 실패한다.
+
+* 이 프로젝트는 Triton을 import하기 전에 `TRITON_BACKENDS_IN_TREE=1`
+  (`akh/tritonenv.py`)을 기본값으로 둔다. 그러면 import된 `triton/backends/` 아래의
+  디렉터리만 탐색하므로 stale entry point는 무시된다. 끄려면 `TRITON_BACKENDS_IN_TREE=0`.
+  공식 pytest를 직접 돌릴 때는 셸에서 `export TRITON_BACKENDS_IN_TREE=1`.
+* `python scripts/check_env.py`는 설치된 Triton 배포판과 깨진 entry point를
+  `env/env.json`의 `triton_install`과 콘솔에 보여 준다.
+* 3.7.1 wheel 자체에는 Hexagon 플러그인이 없어서 **단말 실행에 쓸 수 없다.**
+  근본적으로 정리하려면 `pip show triton`이 `hexagon-mlir/triton`을 가리키지 **않을 때만**
+  `pip uninstall triton`으로 wheel을 지운다. 그다음 `scripts/build_triton.sh`로 editable
+  build를 다시 설치하고, torch는 `torch==2.13.0+cpu`(`ci/torch-requirements.txt`)를 쓴다.
+
 ## 8. 결과 (이 세션)
 
 ### 8.1 환경 기록 (`env/env.json`)

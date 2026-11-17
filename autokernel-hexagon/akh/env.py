@@ -45,7 +45,14 @@ def _sdk_version(root):
 
 
 def collect(adb_probe: bool = True) -> dict:
+    from . import tritonenv
+
+    tritonenv.prefer_in_tree_backends()  # before the first `import triton`
     info = {"host": {"python": platform.python_version(), "platform": platform.platform()}}
+    try:
+        info["triton_install"] = tritonenv.diagnose()
+    except Exception as e:  # noqa: BLE001
+        info["triton_install"] = {"error": f"{type(e).__name__}: {e}"}
     try:
         import torch
         info["torch"] = torch.__version__
