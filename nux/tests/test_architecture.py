@@ -82,3 +82,49 @@ def test_recipe_failure_is_recorded_not_raised(bid, tmp_path, monkeypatch):
     monkeypatch.setattr(mlir_host, "apply_recipe", boom)
     r = c.run_candidate(Candidate("recipe.fuse-elementwise", "ir_recipe"))
     assert (r.state, r.failure) == ("rejected", "compile_failure") and "pass crashed" in r.failure_detail
+
+
+# ---- refactor 2/6: stage pipeline and measurement protocol ------------------------------------
+def test_stage_order_follows_evidence_ladder():
+    from nux import stages
+
+    assert [s.__name__ for s in stages.STAGES] == [
+        "capability", "compile_", "ir_verify", "dedupe", "pending", "target_compiled", "twin_correctness",
+        "session", "correctness", "measure"]
+
+
+def test_exactly_one_record_per_candidate(tmp_path):
+    import json
+
+    c = Controller(registry.resolve({"backend_id": "mock-mlir"}), get("toy-mlp"), contract.get("toy-fp32-v0"),
+                   Store(tmp_path), stats.Policy(warmup=1, pairs=2, requests_per_block=2),
+                   {"backend_id": "mock-mlir", "informational_measurement": True})
+    c.run_baseline()
+    cands = [Candidate("nope", "config"),  # stops at capability
+             Candidate("mock.tile", "config", {"tile": 64, "fail": "compile"}),  # stops at compile
+             Candidate("mock.tile", "config", {"tile": 16, "perturb": "0.5"}),  # stops at correctness
+             Candidate("mock.tile", "config", {"tile": 32})]  # full pipeline incl. measurement
+    recs = [c.run_candidate(x) for x in cands]
+    files = list((tmp_path / "experiments" / c.eid / "candidates").glob("*.json"))
+    assert len(files) == 1 + len(cands)
+    assert [r.failure for r in recs] == ["unsupported", "compile_failure", "correctness_failure", None]
+    full = json.loads(next(f for f in files if json.loads(f.read_text())["candidate"]["params"] == {"tile": 32}).read_text())
+    assert set(full["measurement"]) == {"base", "cand"} and full["decision"]["verdict"] == "not_admissible"
+    assert full["measurement"]["cand"]["conditions"]["protocol"] == "abba-paired-v1"
+
+
+def test_paired_protocol_abba_and_single_warmup():
+    from nux.measurement import PairedProtocol
+    from nux.schema import Measurement
+
+    calls = []
+
+    class P:
+        def measure_e2e(self, runtime, session, inputs, policy):
+            calls.append((session, policy.warmup, policy.pairs))
+            return Measurement("synthetic", "x", "us", [[1.0] * policy.requests_per_block])
+
+    b, c = PairedProtocol(stats.Policy(warmup=5, pairs=4, requests_per_block=3)).run(P(), None, "B", "C", [])
+    assert [s for s, _, _ in calls] == ["B", "C", "C", "B", "B", "C", "C", "B"]
+    assert [w for _, w, _ in calls] == [5, 5, 0, 0, 0, 0, 0, 0] and all(p == 1 for _, _, p in calls)
+    assert len(b.blocks) == len(c.blocks) == 4

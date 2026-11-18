@@ -30,7 +30,9 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   ├── capability.py                  # CapabilityManifest, ActionSpec(support × validation), validate_action
 │   ├── adapters.py                    # CompilerAdapter / RuntimeAdapter / ProfilerAdapter / AdapterBundle / Artifact
 │   ├── registry.py                    # BackendRegistry: backend_id → bundle, profile 호환성 검사
-│   ├── controller.py                  # 실험 루프: prepare / device 모드, ABBA paired 측정, 예산, best 복원
+│   ├── controller.py                  # pipeline 실행, 후보당 기록 1회, best 갱신·복원, 예산 (128줄)
+│   ├── stages.py                      # 후보 평가 단계 함수들 + CandidateContext (증거 사다리 순서)
+│   ├── measurement.py                 # 측정 프로토콜: PairedProtocol(ABBA), SingleProtocol
 │   ├── evaluator.py                   # 정확성 검사, 측정 적격성, 채택 판정 (읽기 전용 규칙)
 │   ├── stats.py                       # paired block 통계, bootstrap CI, Policy(3% / CI>1.0 / p95 2%)
 │   ├── contract.py                    # 정확성 계약 (deit-tiny-fp32-logits-v0, toy-fp32-v0)
@@ -95,13 +97,13 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       └── candidates/<cand>.json     # 후보별 불변 기록 (stage·IR hash·정확성·측정·판정)
 ├── store_mock/                        # A3 mock 실험 기록 (같은 구조)
 │
-├── tests/                             # pytest (51개)
+├── tests/                             # pytest (54개)
 │   ├── conftest.py
 │   ├── test_core.py                   # capability 필터, 통계, 적격성, 계약, 불변 저장, 벤더 분기 금지
 │   ├── test_controller.py             # mock 2종 + host + hexagon 동일 controller, 채택·복원(테스트 전용 device fixture)
 │   ├── test_mlir_and_deit.py          # recipe 의미 보존(host JIT), reproducer, DeiT strict load·corpus
 │   ├── test_aot.py                    # downgrade 규칙, max/min bit-exact, host AOT, Hexagon object + twin, NaN 회귀
-│   ├── test_architecture.py           # 의존 방향 규칙(AST), transforms 오류 계약, recipe 실패 기록 회귀
+│   ├── test_architecture.py           # 의존 방향 규칙(AST), transforms 오류 계약, recipe 실패 회귀, stage 순서·기록 1회·ABBA
 │   └── test_importers.py              # QNN JSON / Chrome Trace 파싱, 이름 매핑, hint→seed (합성 fixture)
 │
 └── .cache/                            # (gitignore) HF 가중치 snapshot, linalg bytecode, AOT 산출물(.ll/.o/.so)
@@ -162,6 +164,12 @@ flowchart TB
 ```
 
 ### 1.3 후보 하나의 실험 흐름
+
+아래 흐름은 `nux/stages.py`의 단계 함수 순서와 일치한다:
+`capability → compile_ → ir_verify → dedupe → pending → target_compiled → twin_correctness → session → correctness → measure`.
+각 단계는 `CandidateContext`만 읽고 쓰며, `ctx.stop(...)`으로 pipeline을 끝낸다. controller는 끝난 context에서
+기록을 **정확히 한 번** 쓴다. 측정 순서와 warm-up은 `nux/measurement.py`의 프로토콜이 정한다
+(ABBA: 짝 i가 짝수면 base→cand, 홀수면 cand→base, session별 warm-up은 첫 블록 전 1회).
 
 ```mermaid
 flowchart TD
@@ -303,7 +311,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
 | 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
-| 테스트 | `python -m pytest -q tests` | 51 passed |
+| 테스트 | `python -m pytest -q tests` | 54 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 
