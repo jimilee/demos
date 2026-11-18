@@ -119,18 +119,28 @@ flowchart TB
         A1["가설 + 후보 작성<br/>config · ir_recipe · lowering_path · kernel"]
     end
 
+    subgraph VREF["벤더 레퍼런스 (선택)"]
+        IMP["importers/<br/>QNN JSON · Chrome Trace · ONNX 이름 매핑"]
+        HN["hints.py<br/>hint 추출 · tag 기반 seed"]
+        OX["onnx_export.py<br/>벤더 입력 ONNX + 검증"]
+    end
+
     subgraph COMMON["공통 계층 — 벤더 중립"]
-        CFG["configs/*.json<br/>backend_id · profiles · workload · contract"]
-        CTL["controller.py<br/>prepare / device 모드 · 예산 · 복원"]
-        CAP["capability.py<br/>validate_action"]
+        CFG["configs/*.json<br/>backend_id · profiles · workload · contract · artifact_cache"]
+        CTL["controller.py<br/>pipeline 실행 · 기록 1회 · best 갱신/복원 · 예산"]
+        STG["stages.py<br/>CandidateContext · 단계 함수 10개"]
+        CAP["capability.py<br/>traits · validate_action"]
+        MEAS["measurement.py<br/>PairedProtocol(ABBA) · Single"]
         EVA["evaluator.py + stats.py<br/>정확성 · 적격성 · paired bootstrap"]
         CON["contract.py<br/>허용 오차 (버전)"]
         STO["store.py<br/>불변 기록 · backend별 best"]
+        ART["artifact_store.py<br/>content-addressed · pin · LRU 5 GB"]
         WL["workloads/<br/>DeiT-tiny · corpus · reference"]
         FE["frontend.py<br/>workload → 검증된 linalg IR"]
         TR["transforms.py<br/>IR recipe 적용 · 오류 계약"]
         PR["profilers.py<br/>host wall-clock · none"]
         MH["mlir_host.py<br/>저수준 MLIR 도구"]
+        AOTM["aot.py<br/>downgrade · max/min 확장 · llc"]
     end
 
     REG["registry.py<br/>BackendRegistry"]
@@ -144,26 +154,33 @@ flowchart TB
         NEXT["(2번째 벤더)<br/>C0–C2 예정"]
     end
 
+    OX --> IMP --> HN -->|"seeds_*.json"| CFG
     A1 --> CFG --> CTL
-    CTL --> CAP
-    CTL --> EVA
+    CTL --> STG
+    STG --> CAP
+    STG --> MEAS
+    STG --> EVA
     EVA --> CON
+    STG --> ART
     CTL --> STO
+    CTL --> ART
     CTL --> WL
     CTL --> REG
     REG --> HEX & HOST & MOCK & AOTH & AOTX
     REG -.-> NEXT
     HEX & HOST & AOTH & AOTX --> FE
     HEX & HOST & AOTH & AOTX --> TR
-    HOST & AOTH & AOTX --> PR
+    HOST & AOTH --> PR
     FE --> MH
     TR --> MH
-    AOTH --> AOTM["aot.py<br/>downgrade · max/min 확장 · llc"]
-    AOTX --> AOTM
+    AOTH & AOTX --> AOTM
     AOTM --> MH
     AOTM -->|"llc -march=hexagon"| LLC["system LLVM 18<br/>(hexagonv73)"]
     HEX -->|"translate_linalg_to_obj<br/>run_torch_mlir"| SDK["Hexagon-MLIR toolchain<br/>+ Snapdragon cDSP"]
 ```
+
+화살표는 호출·의존 방향이다. backend끼리는 서로 의존하지 않고, 공통 계층은 backend를 import하지 않는다
+(registry의 동적 로딩만 예외, `tests/test_architecture.py`가 검사).
 
 ### 1.3 후보 하나의 실험 흐름
 
@@ -175,29 +192,37 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    P["후보 proposed"] --> V{"capability 검사<br/>validate_action"}
-    V -->|"미지원·파라미터 오류"| R1["rejected: unsupported<br/>(컴파일 전 차단)"]
-    V -->|ok| C["compile_candidate<br/>(부모 = 현재 best)"]
-    C -->|예외| R2["rejected: compile_failure"]
-    C --> IR{"IR verifier"}
-    IR --> D{"IR·설정이 best와 동일?"}
-    D -->|예| S0["측정 생략: same lowering"]
-    D -->|아니오| PD{"artifact.pending?<br/>(toolchain 없음)"}
-    PD -->|예| PEND1["state=ir_valid<br/>target_compile: pending"]
-    PD -->|아니오| L["integrate + prepare_session"]
-    L -->|DeviceUnavailable| PEND2["device 단계 pending"]
-    L --> COR{"정확성: tune + stress corpus<br/>vs framework reference"}
-    COR -->|실패| R3["rejected:<br/>correctness / runtime_failure"]
-    COR -->|통과| M{"모드"}
-    M -->|prepare| PEND3["verdict=pending<br/>(채택 불가)"]
-    M -->|device| AB["ABBA paired block 측정<br/>baseline ↔ 후보"]
+    P["proposed"] --> V{"① capability<br/>validate_action"}
+    V -->|"미지원 · 파라미터 오류"| R1["rejected: unsupported<br/>(컴파일 전 차단, key 없음)"]
+    V -->|ok| K["② compile_<br/>key = 컴파일 입력 hash"]
+    K --> HIT{"artifact store<br/>hit + load_artifact?"}
+    HIT -->|"hit (hash 검증 통과)"| A["artifact (cache_hit)"]
+    HIT -->|miss| C["compile_candidate → integrate<br/>(부모 = 현재 best)"]
+    C -->|"BackendError"| R2["rejected: compile_failure 등"]
+    C -->|"성공 → 파일을 store로 이동"| A
+    A --> IR["③ ir_verify → state ir_valid"]
+    IR --> D{"④ dedupe<br/>IR·설정이 best와 동일?"}
+    D -->|예| S0["종료: same lowering"]
+    D -->|아니오| PD{"⑤ pending?<br/>(toolchain 없음)"}
+    PD -->|예| PEND1["종료: target_compile pending"]
+    PD -->|아니오| TC["⑥ target_compiled<br/>(target_codegen일 때)"]
+    TC --> TW{"⑦ twin_correctness<br/>(twin이 있을 때)"}
+    TW -->|실패| R3["rejected: correctness_failure"]
+    TW -->|"통과 / 해당 없음"| SS{"⑧ session<br/>prepare_session"}
+    SS -->|DeviceUnavailable| PEND2["종료: device 단계 pending"]
+    SS -->|"BackendError"| R4["rejected: runtime_failure 등"]
+    SS --> COR{"⑨ correctness<br/>tune + stress vs reference"}
+    COR -->|실패| R5["rejected:<br/>correctness / runtime_failure"]
+    COR -->|"통과 → host_correct / device_correct"| ME{"⑩ measure<br/>acceptance_capable 또는<br/>informational_measurement?"}
+    ME -->|아니오| PEND3["verdict = pending"]
+    ME -->|예| AB["PairedProtocol (ABBA)<br/>best ↔ 후보"]
     AB --> J{"evaluator.judge"}
-    J -->|"source≠device · instrumented"| NA["not_admissible"]
-    J -->|"gain≥3% · CI>1.0 · p95≤2%"| ACC["accepted → best 갱신"]
-    J -->|그 외| KEEP["not_improved / inconclusive<br/>→ 이전 best 유지"]
-    R1 & R2 & R3 & NA & KEEP --> REC["store: 불변 기록 + results.tsv"]
-    ACC --> REC
-    PEND1 & PEND2 & PEND3 & S0 --> REC
+    J -->|"traits·source 부적격"| NA["not_admissible"]
+    J -->|"gain≥3% · CI>1.0 · p95≤2%"| ACC["accepted"]
+    J -->|그 외| KEEP["not_improved / inconclusive"]
+    R1 & R2 & R3 & R4 & R5 & NA & KEEP & PEND1 & PEND2 & PEND3 & S0 & ACC --> REC["controller: 기록 1회<br/>store + results.tsv"]
+    REC --> POL["artifact 보존 정책<br/>기각 → 삭제 · intermediate 삭제<br/>baseline/accepted → pin · LRU gc"]
+    ACC --> BEST["best 갱신 (그 외에는 이전 best 유지)"]
 ```
 
 ### 1.4 증거 상태 (상태 사다리)
@@ -245,6 +270,8 @@ flowchart LR
     DEV --> CMP
     REF --> CMP
     CMP --> ST["store/ 기록"]
+    HOBJ & TWIN & LIN2 -->|"primary · verification · source"| AS[".cache/artifacts/<br/>content-addressed 저장소"]
+    LL -.->|"intermediate: 기록 직후 삭제"| AS
     LIN2 -->|"rank≥5 / unit-dim reshape"| REPRO["reports/reproducers/*.mlir"]
 ```
 
