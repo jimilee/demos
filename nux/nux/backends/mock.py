@@ -3,10 +3,14 @@
   mock-mlir  exposes config + IR recipe + kernel actions (an MLIR-style backend)
   mock-sdk   exposes only model-SDK options (no IR, no custom kernels)
 
-Outputs are computed for real with the framework model (so correctness checks
-run), but timings are SYNTHETIC (Measurement.source="synthetic") and the
-bundle kind is "mock": the evaluator can never accept on them.
-Fault injection params (tests only): fail="compile"|"runtime", perturb=<float>.
+CAVEATS (also in nux/CLAUDE.md):
+  * Timings are SYNTHETIC (measurement.tier="synthetic", Measurement.source="synthetic"):
+    the evaluator returns not_admissible, never accepted. Never report them as performance.
+  * Outputs ARE the framework reference, so correctness passes trivially unless a fault is
+    injected (perturb). Passing on a mock says nothing about a real compiler.
+  * Fault-injection params are for tests / A3 configs only: fail="compile"|"runtime",
+    perturb=<float>, synthetic_speedup=<float>.
+  * Registered in the production registry (visible in the CLI); `run` prints a warning.
 """
 from __future__ import annotations
 

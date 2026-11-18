@@ -18,6 +18,7 @@ non-distilled)다. 기존 `../autokernel-hexagon/`(RMSNorm 커널 루프)와는 
 ```
 nux/                                   # 프로젝트 루트 (demos/nux)
 ├── README.md                          # 이 문서
+├── CLAUDE.md                          # 새 세션용 요약: 환경, mock 주의사항, 미해결 결함, 작업 규칙
 ├── program.md                         # 에이전트 지침 (수정 경계·실험 절차·결과 해석)
 ├── requirements.txt                   # host 준비 단계 의존성 (torch, torch-mlir 20261101, transformers ...)
 │
@@ -328,6 +329,21 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 * 공통 모듈은 `backends`와 `importers`를 import하지 않는다 (registry의 동적 로딩만 예외).
 * IR recipe 적용은 `transforms.apply_ir_recipe` 하나뿐이다. 전제조건 불충족은 `Unsupported`, pass·verifier 실패는
   `CompileFailure`로 일관되게 기록된다.
+
+### 1.6.0 mock backend 주의사항
+
+`mock-mlir`·`mock-sdk`는 하드웨어 없이 공통 계층을 검증하는 구조 검사용이다 (계획 A3).
+
+* **시간은 합성값이다** (`measurement.tier = synthetic`). evaluator는 항상 `not_admissible`로 판정하며,
+  성능 결과로 인용하면 안 된다.
+* **정확성은 사실상 항상 통과한다.** mock 출력이 곧 framework 기준값이라, 고장 주입(`perturb`) 없이는
+  정확성 단계가 의미 있는 판정을 하지 않는다.
+* 고장 주입 파라미터(`fail`, `perturb`, `synthetic_speedup`)는 테스트와 A3 config 전용이다.
+* 운영 registry에 등록되어 CLI에 보인다. `run`은 synthetic 등급 backend에 경고를 출력한다.
+* 현재는 toolchain lock이 모든 backend를 포함해서, mock manifest를 바꾸면 실제 backend의 컴파일 key도 바뀐다
+  (미해결 결함, `CLAUDE.md` 참고).
+
+새 세션용 요약(환경, 미해결 결함, 작업 규칙)은 [`CLAUDE.md`](CLAUDE.md)에 있다.
 
 ### 1.6.1 config와 기록 검증
 

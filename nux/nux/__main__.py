@@ -100,6 +100,9 @@ def cmd_import_profile(a):
 def _print_event(kind, p):
     if kind == "start":
         print(f"experiment {p['experiment_id']}: backend={p['backend_id']} traits={p['traits']} mode={p['mode']}")
+        if p["traits"].get("measurement_tier") == "synthetic":
+            print("  WARNING: synthetic-tier backend (test/structure mock). Timings are not measurements and outputs "
+                  "are the framework reference; see nux/CLAUDE.md 'Mock backends - caveats'.")
     elif kind == "record":
         hit = " [cache hit]" if p.cache_hit else ""
         name = p.candidate["action_id"]
