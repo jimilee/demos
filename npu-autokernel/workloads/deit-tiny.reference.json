@@ -1,0 +1,451 @@
+{
+  "workload": "deit-tiny",
+  "reference": "framework eager fp32 (transformers ViTForImageClassification)",
+  "torch": "2.15.0+cu132",
+  "inputs": {
+    "tune_blobs_1": {
+      "split": "tune",
+      "input_sha256": "23b273214fbc65a57217c25f901bb94c1e7e0d2f73db9633634dc1e575a1d3aa",
+      "logits_sha256": "4793de8ef9492a35db4074d02de315cb9ba1b208d629fbee7729f21c9c797b02",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        818,
+        819,
+        650,
+        644,
+        530
+      ],
+      "top5_logits": [
+        6.9878,
+        5.5992,
+        5.4636,
+        5.2541,
+        4.0394
+      ],
+      "labels": [
+        "spotlight, spot",
+        "stage",
+        "microphone, mike"
+      ]
+    },
+    "tune_blobs_2": {
+      "split": "tune",
+      "input_sha256": "ab59eb84113f0c74c905c88d5f312b3270ebd1cf1704481db26463415eaf5a46",
+      "logits_sha256": "21c8d00094e8045504eb32b2ee9d22c2c4cfe563275b81606ad93c9a46489c9b",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        818,
+        644,
+        862,
+        650,
+        626
+      ],
+      "top5_logits": [
+        4.4242,
+        4.135,
+        3.0628,
+        3.0294,
+        2.9677
+      ],
+      "labels": [
+        "spotlight, spot",
+        "matchstick",
+        "torch"
+      ]
+    },
+    "tune_gradient_3": {
+      "split": "tune",
+      "input_sha256": "ca852ed4d3ffb326bd017198c313eededda8e845b668875f8d54375d785c6a05",
+      "logits_sha256": "d225d9693abf965eea85383fae4b8ca336ffd0c637d80f1f70941908fbb549ef",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        701,
+        417,
+        557,
+        405,
+        21
+      ],
+      "top5_logits": [
+        2.8745,
+        2.4344,
+        2.0667,
+        2.0048,
+        1.8857
+      ],
+      "labels": [
+        "parachute, chute",
+        "balloon",
+        "flagpole, flagstaff"
+      ]
+    },
+    "tune_texture_4": {
+      "split": "tune",
+      "input_sha256": "c60b758adc0dcedb0f69abaaf5953222a0df89b738c5de6d2f00d5e0d37703d7",
+      "logits_sha256": "1c18d0711936751435cec6d5ba380aa46b2b20cb0ffdf1dd94d20f0a0f6ac6df",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        556,
+        904,
+        632,
+        753,
+        539
+      ],
+      "top5_logits": [
+        6.9385,
+        6.8174,
+        5.2887,
+        4.2304,
+        4.0298
+      ],
+      "labels": [
+        "fire screen, fireguard",
+        "window screen",
+        "loudspeaker, speaker, speaker unit, loudspeaker system, speaker system"
+      ]
+    },
+    "tune_blobs_5": {
+      "split": "tune",
+      "input_sha256": "a6bf870fd766f2ac564a367525df673385b8a51c72c4c2c21f396f6d587cddf3",
+      "logits_sha256": "31564e7602e19df4b956fce7850fa06e38e40db5d77681b08db34820042bf461",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        818,
+        650,
+        819,
+        644,
+        722
+      ],
+      "top5_logits": [
+        6.6341,
+        4.5838,
+        4.3643,
+        4.2523,
+        3.555
+      ],
+      "labels": [
+        "spotlight, spot",
+        "microphone, mike",
+        "stage"
+      ]
+    },
+    "tune_texture_6": {
+      "split": "tune",
+      "input_sha256": "2ac6ede6e3a69c99a9e969467a5685c3383b60b8ca2911bffac34bd9e21dd691",
+      "logits_sha256": "96e840909f0cc90d87bd4959f8d81d1164ea4976e5aece507642ab5e21f29a3d",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        556,
+        904,
+        632,
+        811,
+        446
+      ],
+      "top5_logits": [
+        7.8389,
+        6.3527,
+        6.0342,
+        6.0084,
+        4.1962
+      ],
+      "labels": [
+        "fire screen, fireguard",
+        "window screen",
+        "loudspeaker, speaker, speaker unit, loudspeaker system, speaker system"
+      ]
+    },
+    "holdout_blobs_101": {
+      "split": "holdout",
+      "input_sha256": "acc3aa539378555ebd2f356951a92baf8fc737fdec7c62ec63a2cbb55a37d1e9",
+      "logits_sha256": "3c8133b30aa26400dabd7d68da1bdcf4474bfbfd42e02041c879aeaf3ec1541f",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        818,
+        644,
+        650,
+        920,
+        819
+      ],
+      "top5_logits": [
+        6.1734,
+        5.2324,
+        4.2262,
+        3.6316,
+        3.546
+      ],
+      "labels": [
+        "spotlight, spot",
+        "matchstick",
+        "microphone, mike"
+      ]
+    },
+    "holdout_gradient_102": {
+      "split": "holdout",
+      "input_sha256": "db4510028df20f5bc53242b47f751fa9e551888bb4b1ef1b1ea5d6ab2a592cda",
+      "logits_sha256": "3502d0b6201d3b24492c5e7dcc516ecac0ce5773e34f3e6f318e675d8742d34d",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        149,
+        701,
+        4,
+        3,
+        913
+      ],
+      "top5_logits": [
+        3.5299,
+        3.3838,
+        3.2993,
+        3.0213,
+        2.9963
+      ],
+      "labels": [
+        "dugong, Dugong dugon",
+        "parachute, chute",
+        "hammerhead, hammerhead shark"
+      ]
+    },
+    "holdout_texture_103": {
+      "split": "holdout",
+      "input_sha256": "9c659106f34b482f5216da3db5077e4f698502d9c94249e3fe8d8bcfc8b6db4b",
+      "logits_sha256": "3e5b25b1110e19dd9ef2304497c9570a51f9d7bc584bb9631aad71ededa1d60f",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        904,
+        556,
+        446,
+        906,
+        811
+      ],
+      "top5_logits": [
+        5.7999,
+        5.6373,
+        5.1216,
+        5.0577,
+        4.304
+      ],
+      "labels": [
+        "window screen",
+        "fire screen, fireguard",
+        "binder, ring-binder"
+      ]
+    },
+    "holdout_blobs_104": {
+      "split": "holdout",
+      "input_sha256": "a98d3783e91efa493b40dcbc68adaa5282fe2973da27d66f5d71358e191401b8",
+      "logits_sha256": "b8333faaecc8c3af963043875305af78579545719e9cbaa591a7e92fe497e29a",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        818,
+        644,
+        819,
+        470,
+        650
+      ],
+      "top5_logits": [
+        5.3984,
+        4.1236,
+        3.5625,
+        3.394,
+        3.3547
+      ],
+      "labels": [
+        "spotlight, spot",
+        "matchstick",
+        "stage"
+      ]
+    },
+    "stress_white_0": {
+      "split": "stress",
+      "input_sha256": "fb446ff86f61c7dfadb0cc01a6ad2d5923a13392df002e8e869c9ee50ba0aafa",
+      "logits_sha256": "799725921594521cff56a348aee3629995441c505b585f5a73177aa2dc98f876",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        549,
+        21,
+        701,
+        419,
+        813
+      ],
+      "top5_logits": [
+        1.3622,
+        0.9696,
+        0.9349,
+        0.9214,
+        0.9212
+      ],
+      "labels": [
+        "envelope",
+        "kite",
+        "parachute, chute"
+      ]
+    },
+    "stress_black_0": {
+      "split": "stress",
+      "input_sha256": "811b0abfb7b806545700b3a1b9513d4ff52fd7da3ac337ae9ca69772f74e8415",
+      "logits_sha256": "147ea8f738328c249e63f4db50ea53a4e60d634f5b61133e6ed982971fea63ef",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        549,
+        21,
+        954,
+        935,
+        987
+      ],
+      "top5_logits": [
+        0.9531,
+        0.8437,
+        0.7908,
+        0.7906,
+        0.7736
+      ],
+      "labels": [
+        "envelope",
+        "kite",
+        "banana"
+      ]
+    },
+    "stress_checker1px_0": {
+      "split": "stress",
+      "input_sha256": "9fd2222b6135ad8c787e5738aad8300ceaa2fcc1343cef760cdc3617dbbad5a1",
+      "logits_sha256": "b1bce5237f6ad8ed5dab0c255b070804cca56bbc65622c65a9ae8bcc91e6cea4",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        573,
+        359,
+        549,
+        141,
+        139
+      ],
+      "top5_logits": [
+        0.7192,
+        0.6629,
+        0.6385,
+        0.6158,
+        0.6109
+      ],
+      "labels": [
+        "go-kart",
+        "black-footed ferret, ferret, Mustela nigripes",
+        "envelope"
+      ]
+    },
+    "stress_uniform_noise_201": {
+      "split": "stress",
+      "input_sha256": "4c1d8f35d0515a0f20e1a9cf6cce8b6e68863b8a98b9575d4c06438adee82259",
+      "logits_sha256": "b50f91a196548ce64c97caf3dcf2508c88f1573706c253364712b1deb5430bb1",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        984,
+        741,
+        539,
+        599,
+        646
+      ],
+      "top5_logits": [
+        4.5114,
+        3.7423,
+        3.6124,
+        2.9092,
+        2.8777
+      ],
+      "labels": [
+        "rapeseed",
+        "prayer rug, prayer mat",
+        "doormat, welcome mat"
+      ]
+    },
+    "stress_const_zero": {
+      "split": "stress",
+      "input_sha256": "ad8c5f4d30e45b2a50f7f4d1f347f64d613c6fbcd92c54ca746ab077f402d8cc",
+      "logits_sha256": "69a9cf88800af0f30dff72e3d948bf86efbfbd6e3ef4f5c335630da285523cce",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        573,
+        468,
+        498,
+        582,
+        21
+      ],
+      "top5_logits": [
+        0.7138,
+        0.7009,
+        0.6812,
+        0.6525,
+        0.6206
+      ],
+      "labels": [
+        "go-kart",
+        "cab, hack, taxi, taxicab",
+        "cinema, movie theater, movie theatre, movie house, picture palace"
+      ]
+    },
+    "stress_const_pos3": {
+      "split": "stress",
+      "input_sha256": "b36d70057ec1bcb7e5d08b0c4e688c8d09b1556b58a2201cb79c0b16b9d481c0",
+      "logits_sha256": "81840b2a45707aea9ad30cff5aa7fa6dba4d515d7ed4bc3de5556d8a45fd0225",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        549,
+        844,
+        701,
+        21,
+        600
+      ],
+      "top5_logits": [
+        1.57,
+        1.4095,
+        1.3824,
+        1.2279,
+        1.2251
+      ],
+      "labels": [
+        "envelope",
+        "switch, electric switch, electrical switch",
+        "parachute, chute"
+      ]
+    },
+    "stress_const_neg3": {
+      "split": "stress",
+      "input_sha256": "d0c0ec386c26782975ecf49ff5174ef4f13005c006d2cdcb1e137a9cba512355",
+      "logits_sha256": "5f7386e5a3a3090081f9ec01e8c095e58b16f48a0a1239906de51057ce722d33",
+      "deterministic": true,
+      "finite": true,
+      "top5": [
+        111,
+        5,
+        103,
+        540,
+        644
+      ],
+      "top5_logits": [
+        1.48,
+        1.1565,
+        1.0806,
+        1.0084,
+        0.9689
+      ],
+      "labels": [
+        "nematode, nematode worm, roundworm",
+        "electric ray, crampfish, numbfish, torpedo",
+        "platypus, duckbill, duckbilled platypus, duck-billed platypus, Ornithorhynchus anatinus"
+      ]
+    }
+  },
+  "all_deterministic": true,
+  "all_finite": true
+}

@@ -1,4 +1,6 @@
 .venv/
+.venv-npu/
 __pycache__/
 *.pyc
 .pytest_cache/
+npu-autokernel/.cache/

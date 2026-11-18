@@ -1,0 +1,41 @@
+{
+  "workload_id": "toy-mlp",
+  "evaluation_contract_id": "toy-fp32-v0",
+  "device_profile": "none",
+  "correctness_splits": [
+    "tune",
+    "stress"
+  ],
+  "corpus_limit": null,
+  "budget": {
+    "max_candidates": 20,
+    "max_consecutive_failures": 5
+  },
+  "store": "store_mock",
+  "policy": {
+    "warmup": 2,
+    "pairs": 6,
+    "requests_per_block": 5
+  },
+  "backend_id": "mock-sdk",
+  "candidates": [
+    {
+      "action_id": "sdk.opt_level",
+      "kind": "config",
+      "params": {
+        "level": 2
+      },
+      "hypothesis": "SDK option"
+    },
+    {
+      "action_id": "recipe.fold-unit-extent-dims",
+      "kind": "ir_recipe",
+      "hypothesis": "must be filtered: SDK backend has no IR access"
+    },
+    {
+      "action_id": "kernel.replace",
+      "kind": "kernel",
+      "hypothesis": "must be filtered: no custom kernel API"
+    }
+  ]
+}

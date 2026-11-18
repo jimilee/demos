@@ -1,0 +1,251 @@
+{
+  "workload": "deit-tiny",
+  "generator": "synthetic-images-v1",
+  "regenerates_identically": true,
+  "splits": {
+    "tune": 6,
+    "holdout": 4,
+    "stress": 7
+  },
+  "task_accuracy": "pending: no licensed labeled evaluation set in this environment",
+  "items": [
+    {
+      "id": "tune_blobs_1",
+      "split": "tune",
+      "sha256": "23b273214fbc65a57217c25f901bb94c1e7e0d2f73db9633634dc1e575a1d3aa",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -1.0,
+      "max": 0.9372549057006836,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "tune_blobs_2",
+      "split": "tune",
+      "sha256": "ab59eb84113f0c74c905c88d5f312b3270ebd1cf1704481db26463415eaf5a46",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -1.0,
+      "max": 0.772549033164978,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "tune_gradient_3",
+      "split": "tune",
+      "sha256": "ca852ed4d3ffb326bd017198c313eededda8e845b668875f8d54375d785c6a05",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -0.8352941274642944,
+      "max": 0.6000000238418579,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "tune_texture_4",
+      "split": "tune",
+      "sha256": "c60b758adc0dcedb0f69abaaf5953222a0df89b738c5de6d2f00d5e0d37703d7",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -0.9137254953384399,
+      "max": 0.9058823585510254,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "tune_blobs_5",
+      "split": "tune",
+      "sha256": "a6bf870fd766f2ac564a367525df673385b8a51c72c4c2c21f396f6d587cddf3",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -1.0,
+      "max": 0.7882353067398071,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "tune_texture_6",
+      "split": "tune",
+      "sha256": "2ac6ede6e3a69c99a9e969467a5685c3383b60b8ca2911bffac34bd9e21dd691",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -0.9607843160629272,
+      "max": 0.9607843160629272,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "holdout_blobs_101",
+      "split": "holdout",
+      "sha256": "acc3aa539378555ebd2f356951a92baf8fc737fdec7c62ec63a2cbb55a37d1e9",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -0.8274509906768799,
+      "max": 0.843137264251709,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "holdout_gradient_102",
+      "split": "holdout",
+      "sha256": "db4510028df20f5bc53242b47f751fa9e551888bb4b1ef1b1ea5d6ab2a592cda",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -0.686274528503418,
+      "max": 0.6470588445663452,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "holdout_texture_103",
+      "split": "holdout",
+      "sha256": "9c659106f34b482f5216da3db5077e4f698502d9c94249e3fe8d8bcfc8b6db4b",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -0.9843137264251709,
+      "max": 0.9843137264251709,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "holdout_blobs_104",
+      "split": "holdout",
+      "sha256": "a98d3783e91efa493b40dcbc68adaa5282fe2973da27d66f5d71358e191401b8",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -1.0,
+      "max": 0.545098066329956,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "stress_white_0",
+      "split": "stress",
+      "sha256": "fb446ff86f61c7dfadb0cc01a6ad2d5923a13392df002e8e869c9ee50ba0aafa",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": 1.0,
+      "max": 1.0,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "stress_black_0",
+      "split": "stress",
+      "sha256": "811b0abfb7b806545700b3a1b9513d4ff52fd7da3ac337ae9ca69772f74e8415",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -1.0,
+      "max": -1.0,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "stress_checker1px_0",
+      "split": "stress",
+      "sha256": "9fd2222b6135ad8c787e5738aad8300ceaa2fcc1343cef760cdc3617dbbad5a1",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -0.09803920984268188,
+      "max": 0.09803926944732666,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "stress_uniform_noise_201",
+      "split": "stress",
+      "sha256": "4c1d8f35d0515a0f20e1a9cf6cce8b6e68863b8a98b9575d4c06438adee82259",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -0.9058823585510254,
+      "max": 0.9058823585510254,
+      "beyond_processor_domain": false
+    },
+    {
+      "id": "stress_const_zero",
+      "split": "stress",
+      "sha256": "ad8c5f4d30e45b2a50f7f4d1f347f64d613c6fbcd92c54ca746ab077f402d8cc",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": 0.0,
+      "max": 0.0,
+      "beyond_processor_domain": true
+    },
+    {
+      "id": "stress_const_pos3",
+      "split": "stress",
+      "sha256": "b36d70057ec1bcb7e5d08b0c4e688c8d09b1556b58a2201cb79c0b16b9d481c0",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": 3.0,
+      "max": 3.0,
+      "beyond_processor_domain": true
+    },
+    {
+      "id": "stress_const_neg3",
+      "split": "stress",
+      "sha256": "d0c0ec386c26782975ecf49ff5174ef4f13005c006d2cdcb1e137a9cba512355",
+      "shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "min": -3.0,
+      "max": -3.0,
+      "beyond_processor_domain": true
+    }
+  ]
+}

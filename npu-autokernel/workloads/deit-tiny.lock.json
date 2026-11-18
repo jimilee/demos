@@ -1,0 +1,77 @@
+{
+  "workload_id": "deit-tiny",
+  "model_id": "facebook/deit-tiny-patch16-224",
+  "revision": "b3428f18dcc7b543470d07f14b4a4157815d1880",
+  "files": {
+    "pytorch_model.bin": "e1a51b0c81ff812e079d2189352747947879fee56429e4480064a6695cb34b2c",
+    "config.json": "e8786a68c993c04b8721c4d379e4f9de6a9564fba5987704dbf8696d53b7972d",
+    "preprocessor_config.json": "90d1ae427c27d2b9dcb01f6a62ba96aa67aac2de1697c59cd212055b5035c4a2"
+  },
+  "framework": {
+    "torch": "2.15.0+cu132",
+    "transformers": "5.23.0",
+    "class": "ViTForImageClassification",
+    "attn_implementation": "sdpa",
+    "processor": "ViTImageProcessorPil",
+    "processor_backend": "pil"
+  },
+  "load_info": {
+    "missing_keys": 0,
+    "unexpected_keys": 0,
+    "mismatched_keys": 0,
+    "error_msgs": 0
+  },
+  "structure": {
+    "num_hidden_layers": 12,
+    "hidden_size": 192,
+    "num_attention_heads": 3,
+    "patch_size": 16,
+    "image_size": 224,
+    "num_labels": 1000,
+    "tokens": 197,
+    "head_dim": 64
+  },
+  "meta": {
+    "dtype": "float32",
+    "inputs": [
+      [
+        1,
+        3,
+        224,
+        224
+      ]
+    ],
+    "outputs": [
+      [
+        1,
+        1000
+      ]
+    ],
+    "layout": "NCHW",
+    "batch": 1,
+    "quantized": false,
+    "num_hidden_layers": 12,
+    "hidden_size": 192,
+    "num_attention_heads": 3,
+    "patch_size": 16,
+    "image_size": 224,
+    "num_labels": 1000,
+    "tokens": 197,
+    "head_dim": 64
+  },
+  "preprocessor_config": {
+    "do_normalize": true,
+    "do_resize": true,
+    "image_mean": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "image_std": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "size": 224
+  }
+}

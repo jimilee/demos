@@ -1,0 +1,7 @@
+torch
+torch-mlir==20261101
+transformers
+safetensors
+pillow
+numpy
+pytest

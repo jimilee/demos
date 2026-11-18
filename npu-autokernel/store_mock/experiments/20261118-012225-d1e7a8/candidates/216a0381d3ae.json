@@ -1,0 +1,156 @@
+{
+  "experiment_id": "20261118-012225-d1e7a8",
+  "candidate": {
+    "action_id": "mock.tile",
+    "kind": "config",
+    "params": {
+      "tile": 16,
+      "perturb": "0.1"
+    },
+    "hypothesis": "injected wrong output",
+    "expected_savings": "",
+    "possible_costs": "",
+    "scope": "module",
+    "parent_id": "c7db5b495d0f",
+    "payload_files": {},
+    "candidate_id": "216a0381d3ae"
+  },
+  "backend_id": "mock-mlir",
+  "workload_id": "toy-mlp",
+  "contract_id": "toy-fp32-v0",
+  "state": "rejected",
+  "failure": "correctness_failure",
+  "failure_detail": "[('toy_0', '32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0'), ('toy_1', '32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0'), ('toy_3', '32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0')]",
+  "stages": [
+    {
+      "stage": "proposed",
+      "status": "passed",
+      "detail": "",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "capability",
+      "status": "passed",
+      "detail": "ok",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "compile",
+      "status": "passed",
+      "detail": "",
+      "seconds": 4.7220000851666555e-06,
+      "artifacts": {
+        "kind": "sdk_model",
+        "provenance": [
+          "mock.tile"
+        ]
+      }
+    },
+    {
+      "stage": "host_correctness",
+      "status": "failed",
+      "detail": "[('toy_0', '32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0'), ('toy_1', '32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0'), ('toy_3', '32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0')]",
+      "seconds": null,
+      "artifacts": {}
+    }
+  ],
+  "requested_config": {
+    "tile": 16,
+    "perturb": "0.1"
+  },
+  "effective_config": {
+    "tile": 16,
+    "perturb": "0.1",
+    "_backend_kind": "mock"
+  },
+  "ir_hashes": {},
+  "artifact_hashes": {},
+  "correctness": {
+    "ok": false,
+    "n_inputs": 3,
+    "n_failed": 3,
+    "max_abs_err": 0.10000002384185791,
+    "failed_inputs": [
+      [
+        "toy_0",
+        "32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0"
+      ],
+      [
+        "toy_1",
+        "32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0"
+      ],
+      [
+        "toy_3",
+        "32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0"
+      ]
+    ],
+    "task_accuracy": "pending",
+    "splits": [
+      "tune",
+      "stress"
+    ],
+    "per_input": [
+      {
+        "input_id": "toy_0",
+        "ok": false,
+        "max_abs_err": 0.10000002384185791,
+        "mean_abs_err": 0.10000000323634595,
+        "top1_match": true,
+        "top5_overlap": null,
+        "nonfinite": 0,
+        "reason": "32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0",
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "toy_1",
+        "ok": false,
+        "max_abs_err": 0.10000002384185791,
+        "mean_abs_err": 0.10000000504442141,
+        "top1_match": true,
+        "top5_overlap": null,
+        "nonfinite": 0,
+        "reason": "32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0",
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "toy_3",
+        "ok": false,
+        "max_abs_err": 0.10000002384185791,
+        "mean_abs_err": 0.10000000311993062,
+        "top1_match": true,
+        "top5_overlap": null,
+        "nonfinite": 0,
+        "reason": "32 elements outside atol=1e-05 rtol=0.0001; nonfinite=0",
+        "beyond_processor_domain": false
+      }
+    ]
+  },
+  "measurement": null,
+  "decision": null,
+  "toolchain_lock": {
+    "python": "3.13.18",
+    "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+    "torch": "2.15.0",
+    "torch-mlir": "20261101",
+    "transformers": "5.23.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "hexagon": {
+      "toolchain_importable": false,
+      "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+      "HEXAGON_ARCH_VERSION": null,
+      "HEXAGON_SDK_ROOT": null,
+      "HEXAGON_TOOLS": null,
+      "HEXKL_ROOT": null,
+      "adb": null,
+      "device_state": null,
+      "source_rev_assumed": "9ec15e8"
+    }
+  },
+  "cache_key": "1bf1b117e0743cfaa1c7",
+  "created_at": "2026-11-18T01:22:25+0000",
+  "schema_version": "nak-schema-0.1"
+}

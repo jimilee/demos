@@ -1,0 +1,60 @@
+{
+  "workload_id": "toy-mlp",
+  "evaluation_contract_id": "toy-fp32-v0",
+  "device_profile": "none",
+  "correctness_splits": [
+    "tune",
+    "stress"
+  ],
+  "corpus_limit": null,
+  "budget": {
+    "max_candidates": 20,
+    "max_consecutive_failures": 5
+  },
+  "store": "store_mock",
+  "policy": {
+    "warmup": 2,
+    "pairs": 6,
+    "requests_per_block": 5
+  },
+  "backend_id": "mock-mlir",
+  "candidates": [
+    {
+      "action_id": "mock.tile",
+      "kind": "config",
+      "params": {
+        "tile": 32,
+        "synthetic_speedup": "1.5"
+      },
+      "hypothesis": "synthetic 1.5x: must NOT be accepted"
+    },
+    {
+      "action_id": "mock.tile",
+      "kind": "config",
+      "params": {
+        "tile": 64,
+        "fail": "compile"
+      },
+      "hypothesis": "injected compile failure"
+    },
+    {
+      "action_id": "mock.tile",
+      "kind": "config",
+      "params": {
+        "tile": 16,
+        "perturb": "0.1"
+      },
+      "hypothesis": "injected wrong output"
+    },
+    {
+      "action_id": "recipe.fold-unit-extent-dims",
+      "kind": "ir_recipe",
+      "hypothesis": "IR recipe allowed on mlir-style backend"
+    },
+    {
+      "action_id": "path.library_matmul",
+      "kind": "lowering_path",
+      "hypothesis": "unavailable action: filtered"
+    }
+  ]
+}

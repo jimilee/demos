@@ -1,0 +1,68 @@
+{
+  "workload_id": "deit-tiny",
+  "evaluation_contract_id": "deit-tiny-fp32-logits-v0",
+  "device_profile": "set-ANDROID_SERIAL-and-HEXAGON_ARCH_VERSION",
+  "correctness_splits": [
+    "tune",
+    "stress"
+  ],
+  "corpus_limit": {
+    "tune": 2,
+    "stress": 2,
+    "holdout": 0
+  },
+  "budget": {
+    "max_candidates": 20,
+    "max_consecutive_failures": 5
+  },
+  "store": "store",
+  "policy": {
+    "warmup": 20,
+    "pairs": 10,
+    "requests_per_block": 20
+  },
+  "backend_id": "hexagon-mlir",
+  "compiler_profile": "hexagon-mlir/torch-mlir-linalg",
+  "runtime_profile": "hexagon-standalone-launcher",
+  "candidates": [
+    {
+      "action_id": "opt.fusion",
+      "kind": "config",
+      "params": {
+        "value": false
+      },
+      "hypothesis": "baseline fusion on: check cost of disabling"
+    },
+    {
+      "action_id": "opt.enableMultiThreading",
+      "kind": "config",
+      "params": {
+        "value": true
+      },
+      "hypothesis": "linalg multithreading over token dim"
+    },
+    {
+      "action_id": "recipe.fold-unit-extent-dims",
+      "kind": "ir_recipe",
+      "hypothesis": "pre-compile DropUnitDims"
+    },
+    {
+      "action_id": "recipe.fuse-elementwise",
+      "kind": "ir_recipe",
+      "hypothesis": "pre-compile fusion; watch the rank-5 collapse_shape path"
+    },
+    {
+      "action_id": "path.hexkl_matmul",
+      "kind": "lowering_path",
+      "params": {
+        "mode": "micro"
+      },
+      "hypothesis": "HMX matmul; expected filtered: fp32 model, HexKL needs f16"
+    },
+    {
+      "action_id": "kernel.triton_replace",
+      "kind": "kernel",
+      "hypothesis": "expected filtered until ABI binding is proven"
+    }
+  ]
+}
