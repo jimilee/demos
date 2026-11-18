@@ -34,6 +34,7 @@ def manifest():
         input_stages=["pytorch", "linalg-on-tensors"], dtypes=["float32"], actions=actions,
         compatible_runtimes=["mlir-execution-engine-host"],
         execution=ExecutionCaps(target_codegen=False, executes_on="host"),
+        compile_fingerprint={"host_pipeline": H.HOST_PIPELINE},
         measurement=MeasurementCaps(e2e="supported", tier="host", units="ms",
                                     e2e_boundary="host CPU: JIT invoke of the whole model (NOT an NPU)",
                                     notes="host timings are reference-only; never acceptance evidence"),

@@ -120,6 +120,10 @@ def manifest():
         profiler_profile="none", input_stages=["linalg-on-tensors"], dtypes=["float32", "float16"],
         actions=actions, compatible_runtimes=["hexagon-standalone-launcher"],
         execution=ExecutionCaps(target_codegen=True, executes_on="device"),
+        # compile inputs only: device_state / adb / serial are runtime facts and stay out of the key
+        compile_fingerprint={"source_rev": SOURCE_REV, "toolchain_importable": env.get("toolchain_importable"),
+                             "arch": env.get("HEXAGON_ARCH_VERSION"), "sdk": env.get("HEXAGON_SDK_ROOT"),
+                             "tools": env.get("HEXAGON_TOOLS"), "options_fields": env.get("options_fields")},
         measurement=MeasurementCaps(
             e2e="unavailable", tier="device", e2e_boundary="(none yet) plan §9.1 request boundary needs a session-reusing device runner",
             notes="launcher Perf: field is an in-process DSP loop average, not the plan's E2E metric"),

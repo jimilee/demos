@@ -29,7 +29,7 @@ def _manifest(bid, actions, stages):
         execution=ExecutionCaps(target_codegen=False, executes_on="host"),  # outputs: real framework compute on host
         measurement=MeasurementCaps(e2e="supported", tier="synthetic", e2e_boundary="SYNTHETIC", units="us",
                                     notes="synthetic timings for controller tests only"),
-        environment={"runtime_features": ["mock-session"]})
+        environment={"runtime_features": ["mock-session"]}, compile_fingerprint={"mock": "1"})
 
 
 def mlir_manifest():

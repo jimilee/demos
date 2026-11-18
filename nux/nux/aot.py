@@ -263,6 +263,16 @@ def result_type(mod: H.MLIRModule) -> str:
         return str(ir.FunctionType(ir.TypeAttr(f.attributes["function_type"]).value).results[0])
 
 
+def code_fingerprint() -> dict:
+    """Hash of this module (lowering pipeline use, IR downgrade rules, max/min expansion) and the system tools."""
+    import hashlib
+
+    cc = shutil.which(os.environ.get("CC", "cc"))
+    cc_v = subprocess.run([cc, "--version"], capture_output=True, text=True).stdout.splitlines()[:1] if cc else []
+    return {"aot_sha": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16], "llc": llc_version(),
+            "cc": cc_v[0] if cc_v else None}
+
+
 def workdir_base() -> Path:
     if os.environ.get("NUX_AOT_WORKDIR"):
         return Path(os.environ["NUX_AOT_WORKDIR"])

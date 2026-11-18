@@ -97,6 +97,10 @@ class CapabilityManifest:
     actions: list  # [ActionSpec]
     measurement: MeasurementCaps
     execution: ExecutionCaps = field(default_factory=ExecutionCaps)
+    # Inputs that change what THIS backend's compiler produces (versions, target, lowering code hashes).
+    # Artifact-store keys use this, never the full environment: device state, adb paths or other
+    # backends' environments must not invalidate or alias cached artifacts.
+    compile_fingerprint: dict = field(default_factory=dict)
     compatible_runtimes: list = field(default_factory=list)
     device_profile: dict = field(default_factory=dict)
     environment: dict = field(default_factory=dict)  # discovered toolchain / device facts

@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import os
+import platform
 
 import torch
 
@@ -62,6 +63,7 @@ def host_manifest():
         actions=transforms.recipe_actions("upstream MLIR pass; AOT shared library") + [
             ActionSpec("aot.opt_level", "config", "LLVM opt level", "aot", params=[ParamSpec("opt_level", "int", min=0, max=3)])],
         execution=ExecutionCaps(target_codegen=False, executes_on="host"),
+        compile_fingerprint={"host_pipeline": H.HOST_PIPELINE, **aot.code_fingerprint(), "machine": platform.machine()},
         measurement=MeasurementCaps(e2e="supported", tier="host", e2e_boundary="host CPU: ctypes call into AOT .so (NOT an NPU)", units="ms"),
         environment={"runtime_features": ["host-aot"]})
 
@@ -149,6 +151,8 @@ def hex_manifest():
         actions=transforms.recipe_actions("upstream MLIR pass; codegen by upstream LLVM Hexagon backend") + [
             ActionSpec("llc.opt", "config", "llc optimization level", "aot", params=[ParamSpec("opt", "enum", choices=["-O0", "-O1", "-O2", "-O3"])])],
         execution=ExecutionCaps(target_codegen=True, executes_on="none"),
+        compile_fingerprint={"host_pipeline": H.HOST_PIPELINE, **aot.code_fingerprint(), "target": t,
+                             "llc_args": aot.TARGETS.get(t)},
         measurement=MeasurementCaps(e2e="unavailable", tier="none", e2e_boundary="codegen-only backend"),
         device_profile={"arch": t.split("-v")[-1] if "-v" in t else None},
         environment={"llc": aot.llc_path(), "llc_version": v, "hexagon_target": has, "runtime_features": []},

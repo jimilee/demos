@@ -22,6 +22,19 @@ def frontend_version() -> str:
         return "torch-mlir-unknown"
 
 
+def frontend_fingerprint() -> dict:
+    """What determines the exported IR besides the workload itself (whose weights/framework are in its lock)."""
+    import hashlib
+    from pathlib import Path
+
+    try:
+        torch_v = version("torch")
+    except PackageNotFoundError:
+        torch_v = "unknown"
+    src = Path(H.__file__).read_bytes()
+    return {"frontend": frontend_version(), "torch": torch_v, "mlir_host_sha": hashlib.sha256(src).hexdigest()[:16]}
+
+
 def export(workload) -> tuple:
     """Returns (MLIRModule, export_seconds). Raises CompileFailure if the IR does not verify."""
     key = (workload.workload_id, frontend_version())
