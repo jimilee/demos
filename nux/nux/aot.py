@@ -264,6 +264,8 @@ def result_type(mod: H.MLIRModule) -> str:
 
 
 def workdir_base() -> Path:
+    if os.environ.get("NUX_AOT_WORKDIR"):
+        return Path(os.environ["NUX_AOT_WORKDIR"])
     return Path(os.environ.get("NUX_CACHE", Path(__file__).resolve().parents[1] / ".cache")) / "aot"
 
 
@@ -279,6 +281,6 @@ def cleanup_workdirs(paths) -> int:
 
 
 def workdir(prefix="nux_aot_"):
-    base = Path(os.environ.get("NUX_CACHE", Path(__file__).resolve().parents[1] / ".cache")) / "aot"
+    base = workdir_base()
     base.mkdir(parents=True, exist_ok=True)
     return Path(tempfile.mkdtemp(prefix=prefix, dir=base))

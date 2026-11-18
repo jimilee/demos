@@ -189,7 +189,7 @@ class HexAOTCompiler(CompilerAdapter):
                                "twin_x86_object": str(d / "twin_x86.o"), "twin_so": str(d / "libtwin.so"),
                                "source_ir": str(d / "source.mlirbc")},
                         roles={"llvm_ir": "intermediate", "hexagon_object": "primary", "twin_x86_object": "intermediate",
-                               "twin_so": "intermediate", "source_ir": "source"},
+                               "twin_so": "verification", "source_ir": "source"},
                         cache_meta=_ir_meta(mod),
                         ir_hashes={mod.stage: mod.sha256, "llvm-ir-downgraded": H.sha(ll)},
                         artifact_hashes={"hexagon_object": hexo["sha256"], "twin_x86_object": twin["sha256"]},

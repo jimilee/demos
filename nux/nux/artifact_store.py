@@ -5,12 +5,15 @@ Layout:  <root>/<key[:2]>/<key>/{manifest.json, <files...>}
 File roles
   primary       needed to load/run the artifact (target object, shared library)
   source        needed to reproduce it (input IR bytecode)
-  intermediate  only needed while evaluating (LLVM IR text, host twin objects)
+  verification  not deployed, but needed to RE-EVALUATE without recompiling (host twin .so of the
+                exact target-bound IR); kept with the entry, evicted with it under the size cap
+  intermediate  only needed while building/evaluating once (LLVM IR text, twin .o); regenerable
 
 Default policy (ArtifactPolicy)
   * pinned entries (baseline, accepted best chain) are never evicted
   * rejected candidates are deleted right after their record is written
-  * intermediate files are dropped right after the record is written (regenerable)
+  * intermediate files are dropped right after the record is written (regenerable);
+    verification files are kept
   * total size capped (default 5 GB); unpinned entries evicted least-recently-used first
   * every get() verifies the sha256 of every file; a mismatch evicts the entry (= miss)
 
@@ -27,7 +30,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-ROLES = ("primary", "source", "intermediate")
+ROLES = ("primary", "source", "verification", "intermediate")
 
 
 @dataclass(frozen=True)

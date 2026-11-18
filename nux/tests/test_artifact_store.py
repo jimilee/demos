@@ -40,6 +40,9 @@ def test_record_time_policy(tmp_path):
     assert st.manifest("aa" * 8) is None  # rejected -> deleted
     st.after_record("bb" * 8, rejected=False)
     assert set(st.get("bb" * 8)["paths"]) == {"lib"}  # intermediates dropped, primary kept
+    _put(st, "cc" * 8, tmp_path, {"lib": ("primary", 10), "twin": ("verification", 20), "ll": ("intermediate", 100)})
+    st.after_record("cc" * 8, rejected=False)
+    assert set(st.get("cc" * 8)["paths"]) == {"lib", "twin"}  # verification files survive the record
 
 
 def test_pinned_entries_survive_lru_gc(tmp_path):
@@ -84,12 +87,19 @@ def test_hexagon_object_cache_respects_twin_requirement(tmp_path):
     st = ArtifactStore(tmp_path / "art")
     b1 = _ctl("llvm-aot-hexagon", tmp_path, st).run_baseline()
     assert b1.state == "target_compiled" and not b1.cache_hit
-    # twin (intermediate) dropped after the record -> re-evaluation must recompile to re-check semantics
+    # twin .so is a `verification` file: kept, so re-evaluation hits AND still re-checks semantics
     b2 = _ctl("llvm-aot-hexagon", tmp_path, st).run_baseline()
-    assert not b2.cache_hit and any(s["stage"] == "twin_correctness" and s["status"] == "passed" for s in b2.stages)
-    # ...but restoring the pinned best does not need the twin
+    assert b2.cache_hit and b2.state == "target_compiled"
+    assert any(s["stage"] == "twin_correctness" and s["status"] == "passed" for s in b2.stages)
+    files = st.get(b1.cache_key)["paths"]
+    assert {"hexagon_object", "twin_so", "source_ir"} <= set(files) and "llvm_ir" not in files and "twin_x86_object" not in files
     art, source = _ctl("llvm-aot-hexagon", tmp_path, st).restore_best()
     assert source == "store" and art.target_compiled and "hexagon_object" in art.files
+    # if the twin is gone anyway (e.g. removed by hand), evaluation treats it as a miss and recompiles
+    import os
+    os.unlink(files["twin_so"])
+    b3 = _ctl("llvm-aot-hexagon", tmp_path, st).run_baseline()
+    assert not b3.cache_hit and b3.state == "target_compiled"
 
 
 def test_disabled_store_keeps_old_behavior(tmp_path):

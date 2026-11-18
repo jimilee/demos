@@ -341,7 +341,8 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 |---|---|---|
 | `primary` | AOT `.so`, Hexagon `.o`, Hexagon-MLIR launcher 입력 IR | 항목이 남아 있는 동안 유지 |
 | `source` | 입력 linalg IR bytecode | 항목이 남아 있는 동안 유지 (재현용) |
-| `intermediate` | LLVM IR `.ll`(DeiT 151 MB), twin `.o`/`.so` | **기록 직후 삭제** (재생성 가능) |
+| `verification` | twin `.so`(x86-64 host용, Hexagon object와 **같은 IR**로 빌드) | 항목이 남아 있는 동안 유지. 재평가 때 재컴파일 없이 의미 재검증 |
+| `intermediate` | LLVM IR `.ll`(DeiT 151 MB), twin `.o` | **기록 직후 삭제** (재생성 가능) |
 
 기본 정책 (config의 `artifact_cache`로 변경 가능):
 
@@ -349,6 +350,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 * 기각된 후보의 산출물은 기록 직후 삭제한다.
 * 전체 **5 GB** 상한. 넘으면 pin되지 않은 항목을 오래 안 쓴 순서로 삭제한다.
 * 꺼낼 때마다 모든 파일의 sha256을 검증한다. 불일치하면 삭제하고 miss로 처리한다.
+* 테스트는 `NUX_AOT_WORKDIR`로 임시 디렉토리를 써서 프로젝트 `.cache/aot`에 아무것도 남기지 않는다.
 
 backend는 선택적으로 `load_artifact(entry, purpose)`를 구현해 저장된 파일로 artifact를 다시 만든다.
 구현하지 않은 backend(in-memory JIT, mock)는 캐시를 쓰지 않는다. 재시작 후 `restore_best()`는
@@ -357,7 +359,13 @@ pin된 항목이 온전하면 저장소에서, 아니면 체인을 재컴파일�
 | 측정 (DeiT-tiny) | 첫 실행 | 같은 config 재실행 |
 |---|---|---|
 | `deit_aot_host` | 108 s | **32 s** (baseline·후보 모두 cache hit, 정확성 검사만 다시 수행) |
-| `deit_aot_hexagon` | 300 s | 304 s: twin이 정책상 지워져, 재평가 시 의미 재검증을 위해 재컴파일 (의도된 miss) |
+| `deit_aot_hexagon` | 310 s | **65 s** (4개 모두 hit, twin 정확성 검증은 매번 다시 수행) |
+
+twin `.so`는 배포물이 아니다. Hexagon용도 Android용도 아닌 개발 host(x86-64 Linux)용 shared object로,
+Hexagon object에 넣은 IR이 의미를 바꾸지 않았는지 확인하는 데만 쓴다. 이를 보존하면 Hexagon 후보당
+보존 크기가 약 70 MB에서 93 MB(`hexagon_object.o` 24 + `twin.so` 23 + `source_ir` 46)로 늘고,
+재평가마다 약 60–75초의 재컴파일이 없어진다. twin이 없으면 평가 목적의 조회는 miss로 처리되고,
+best 복원에는 twin이 필요 없다.
 
 정리 명령: `python -m nux cache stats|gc|clean-workdirs`. 이 세션에서 이전 작업 디렉토리 94개(4.83 GB)를 정리했다.
 `aot`·`smoke` 보고서 명령은 끝나면 자기 작업 디렉토리를 지운다 (`--keep-workdir`로 유지).
