@@ -19,30 +19,18 @@ import os
 
 import torch
 
-from .. import aot
+from .. import aot, frontend, transforms
 from .. import mlir_host as H
-from ..adapters import (AdapterBundle, Artifact, CompilerAdapter, CompileFailure, DeviceUnavailable, ProfilerAdapter,
-                        RuntimeAdapter, Unsupported)
+from ..adapters import AdapterBundle, Artifact, CompilerAdapter, CompileFailure, DeviceUnavailable, RuntimeAdapter, Unsupported
 from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
+from ..profilers import HostWallClockProfiler, NoProfiler
 from ..registry import register
-from .host_linalg import Compiler as HostCompiler
-from .host_linalg import Profiler as HostProfiler
-
-
-def _recipe_actions(evidence):
-    return [ActionSpec(f"recipe.{r.recipe_id}", "ir_recipe", r.meaning, r.stage, support="supported", evidence=evidence,
-                       tags=list(r.tags))
-            for r in H.RECIPES.values()]
 
 
 def _apply(parent_mod, candidate, cfg):
     mod = parent_mod
     if candidate.kind == "ir_recipe":
-        r = H.RECIPES[candidate.action_id.split(".", 1)[1]]
-        ok, why = H.recipe_applicable(r, mod)
-        if not ok:
-            raise Unsupported(why)
-        mod = H.apply_recipe(mod, r)
+        mod = transforms.apply_ir_recipe(mod, candidate.action_id)  # Unsupported / CompileFailure contract
     elif candidate.kind == "config":
         cfg.update(candidate.params)
     elif candidate.kind != "baseline":
@@ -59,7 +47,7 @@ def host_manifest():
         backend_id=HOST_ID, version="mlir-own-llvm", compiler_profile="mlir-llvm-aot/x86_64",
         runtime_profile="ctypes-shared-library", profiler_profile="host-wallclock", input_stages=["linalg-on-tensors"],
         dtypes=["float32"], compatible_runtimes=["ctypes-shared-library"],
-        actions=_recipe_actions("upstream MLIR pass; AOT shared library") + [
+        actions=transforms.recipe_actions("upstream MLIR pass; AOT shared library") + [
             ActionSpec("aot.opt_level", "config", "LLVM opt level", "aot", params=[ParamSpec("opt_level", "int", min=0, max=3)])],
         execution=ExecutionCaps(target_codegen=False, executes_on="host"),
         measurement=MeasurementCaps(e2e="supported", tier="host", e2e_boundary="host CPU: ctypes call into AOT .so (NOT an NPU)", units="ms"),
@@ -67,16 +55,14 @@ def host_manifest():
 
 
 class HostAOTCompiler(CompilerAdapter):
-    def __init__(self):
-        self.front = HostCompiler()
-
     def capture_baseline(self, workload):
-        a = self.front.capture_baseline(workload)
-        return Artifact(HOST_ID, "ir", payload=a.payload, ir_hashes=a.ir_hashes, provenance=a.provenance, effective_config={"opt_level": 2})
+        mod, _ = frontend.export(workload)
+        return Artifact(HOST_ID, "ir", payload=mod, ir_hashes={mod.stage: mod.sha256}, provenance=list(mod.provenance),
+                        effective_config={"opt_level": 2})
 
     def compile_candidate(self, workload, candidate, parent):
         parent = parent or self.capture_baseline(workload)
-        mod, cfg = _apply(parent.ir if parent.ir is not None else parent.payload, candidate, dict(parent.effective_config))
+        mod, cfg = _apply(transforms.source_ir(parent), candidate, dict(parent.effective_config))
         return Artifact(HOST_ID, "ir", payload=mod, ir_hashes={mod.stage: mod.sha256}, provenance=mod.provenance,
                         requested_config=dict(candidate.params), effective_config=cfg)
 
@@ -112,7 +98,8 @@ class HostAOTRuntime(RuntimeAdapter):
 
 @register(HOST_ID)
 def host_bundle(config):
-    return AdapterBundle(host_manifest(), HostAOTCompiler(), HostAOTRuntime(), HostProfiler())
+    return AdapterBundle(host_manifest(), HostAOTCompiler(), HostAOTRuntime(),
+                         HostWallClockProfiler("host CPU: ctypes call into AOT .so (not NPU)"))
 
 
 # ------------------------------------------------------------------ hexagon
@@ -133,7 +120,7 @@ def hex_manifest():
         backend_id=HEX_ID, version=f"llc-{v}", compiler_profile=f"upstream-llvm-{v}/{t}",
         runtime_profile="none (needs Hexagon SDK runtime)", profiler_profile="none", input_stages=["linalg-on-tensors"],
         dtypes=["float32"], compatible_runtimes=["none (needs Hexagon SDK runtime)"],
-        actions=_recipe_actions("upstream MLIR pass; codegen by upstream LLVM Hexagon backend") + [
+        actions=transforms.recipe_actions("upstream MLIR pass; codegen by upstream LLVM Hexagon backend") + [
             ActionSpec("llc.opt", "config", "llc optimization level", "aot", params=[ParamSpec("opt", "enum", choices=["-O0", "-O1", "-O2", "-O3"])])],
         execution=ExecutionCaps(target_codegen=True, executes_on="none"),
         measurement=MeasurementCaps(e2e="unavailable", tier="none", e2e_boundary="codegen-only backend"),
@@ -145,15 +132,14 @@ def hex_manifest():
 class HexAOTCompiler(CompilerAdapter):
     def __init__(self, env):
         self.env = env
-        self.front = HostCompiler()
 
     def capture_baseline(self, workload):
-        a = self.front.capture_baseline(workload)
-        return self._build(a.payload, {"opt": "-O2"}, list(a.provenance), {}, workload)
+        mod, _ = frontend.export(workload)
+        return self._build(mod, {"opt": "-O2"}, list(mod.provenance), {}, workload)
 
     def compile_candidate(self, workload, candidate, parent):
         parent = parent or self.capture_baseline(workload)
-        mod, cfg = _apply(parent.ir if parent.ir is not None else parent.payload, candidate, dict(parent.effective_config))
+        mod, cfg = _apply(transforms.source_ir(parent), candidate, dict(parent.effective_config))
         return self._build(mod, cfg, list(mod.provenance), dict(candidate.params), workload)
 
     def _build(self, mod, cfg, prov, requested, workload):
@@ -197,12 +183,9 @@ class HexAOTRuntime(RuntimeAdapter):
         raise DeviceUnavailable("no Hexagon runtime")
 
 
-class NoProfiler(ProfilerAdapter):
-    def measure_e2e(self, runtime, session, inputs, policy):
-        raise Unsupported("codegen-only backend")
 
 
 @register(HEX_ID)
 def hex_bundle(config):
     m = hex_manifest()
-    return AdapterBundle(m, HexAOTCompiler(m.environment), HexAOTRuntime(), NoProfiler())
+    return AdapterBundle(m, HexAOTCompiler(m.environment), HexAOTRuntime(), NoProfiler("codegen-only backend"))

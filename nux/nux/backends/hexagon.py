@@ -27,6 +27,7 @@ from pathlib import Path
 
 import torch
 
+from .. import frontend, transforms
 from .. import mlir_host as H
 from ..adapters import (AdapterBundle, Artifact, CompilerAdapter, CompileFailure, DeviceUnavailable, ProfilerAdapter,
                         RuntimeAdapter, RuntimeFailure, Unsupported)
@@ -104,10 +105,8 @@ def manifest():
                               constraints={"dtypes": ["float16"], "arch_exclude": ["81"]},
                               evidence="MatmulToHexKLPass.cpp: f16 inputs only; user-guide: not valid on v81; "
                                        "macro mode needs constant weights", tags=["library_matmul", "kernel"]))
-    for r in H.RECIPES.values():  # external input-IR recipes, applied before the vendor compiler
-        actions.append(ActionSpec(f"recipe.{r.recipe_id}", "ir_recipe", r.meaning, "linalg-on-tensors (pre-compile)",
-                                  support="supported", evidence="upstream MLIR pass on the input IR; target effect unvalidated",
-                                  tags=list(r.tags)))
+    # external input-IR recipes, applied before the vendor compiler
+    actions += transforms.recipe_actions("upstream MLIR pass on the input IR; target effect unvalidated")
     actions.append(ActionSpec("kernel.triton_replace", "kernel", "replace a model op with a Triton kernel", "triton-kernel",
                               support="unavailable", requires_runtime=["kernel-binding"],
                               evidence="no proven symbol/ABI binding between Triton objects and the torch-mlir model path yet",
@@ -141,34 +140,25 @@ def _options(cfg):
 class Compiler(CompilerAdapter):
     def __init__(self, env):
         self.env = env
-        self.host = None
 
     def capture_baseline(self, workload):
-        from .host_linalg import Compiler as HostCompiler  # shared front end; IR stage is vendor-neutral
-
-        self.host = self.host or HostCompiler()
-        a = self.host.capture_baseline(workload)
-        return self._target_compile(a.payload, {}, list(a.provenance), {})
+        mod, _ = frontend.export(workload)  # shared, vendor-neutral front end
+        return self._target_compile(mod, {}, list(mod.provenance), {})
 
     def compile_candidate(self, workload, candidate, parent):
         parent = parent or self.capture_baseline(workload)
-        mod = parent.ir if parent.ir is not None else parent.payload
+        mod = transforms.source_ir(parent)
         cfg, prov = dict(parent.effective_config), list(parent.provenance)
         if candidate.kind == "ir_recipe":
-            r = H.RECIPES[candidate.action_id.split(".", 1)[1]]
-            ok, why = H.recipe_applicable(r, mod)
-            if not ok:
-                raise Unsupported(why)
-            mod = H.apply_recipe(mod, r)
+            mod = transforms.apply_ir_recipe(mod, candidate.action_id)
             prov = mod.provenance
         elif candidate.kind == "config":
             cfg[candidate.action_id.split(".", 1)[1]] = candidate.params["value"]
         elif candidate.kind == "lowering_path":
             cfg["enableHexKL"] = True
             cfg["hexKLMode"] = candidate.params.get("mode", "micro")
-        ok, why = H.verify(mod)
-        if not ok:
-            raise CompileFailure(why)
+        elif candidate.kind != "baseline":
+            raise Unsupported(candidate.kind)
         return self._target_compile(mod, cfg, prov, candidate.params)
 
     def _target_compile(self, mod, cfg, prov, requested):

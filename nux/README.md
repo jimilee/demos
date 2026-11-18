@@ -35,7 +35,10 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   ├── stats.py                       # paired block 통계, bootstrap CI, Policy(3% / CI>1.0 / p95 2%)
 │   ├── contract.py                    # 정확성 계약 (deit-tiny-fp32-logits-v0, toy-fp32-v0)
 │   ├── store.py                       # 불변 기록, backend별 best 격리, cache key, results.tsv
-│   ├── mlir_host.py                   # 벤더 중립 MLIR 도구: export, verifier, IR recipe, host LLVM JIT, reshape reproducer
+│   ├── frontend.py                    # 공유 front end: workload → 검증된 linalg IR (프로세스 캐시). backend는 여기서만 baseline IR을 얻는다
+│   ├── transforms.py                  # 공유 IR recipe 적용·검증 (오류 계약: Unsupported / CompileFailure), recipe capability 생성
+│   ├── profilers.py                   # 재사용 profiler (HostWallClockProfiler, NoProfiler)
+│   ├── mlir_host.py                   # 저수준 MLIR 도구: export, verifier, recipe 정의, host LLVM JIT, reshape reproducer
 │   ├── aot.py                         # AOT: MLIR LLVM .o/.so, LLVM IR downgrade, max/min 확장, llc (x86-64 / Hexagon), ctypes
 │   ├── corpus.py                      # 수치·회귀 corpus 생성기 (tune / holdout / stress)
 │   ├── hints.py                       # 벤더 중립 Hint, 프로파일 표 분석, tag 기반 seed 후보 생성
@@ -92,12 +95,13 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       └── candidates/<cand>.json     # 후보별 불변 기록 (stage·IR hash·정확성·측정·판정)
 ├── store_mock/                        # A3 mock 실험 기록 (같은 구조)
 │
-├── tests/                             # pytest (28개)
+├── tests/                             # pytest (51개)
 │   ├── conftest.py
 │   ├── test_core.py                   # capability 필터, 통계, 적격성, 계약, 불변 저장, 벤더 분기 금지
 │   ├── test_controller.py             # mock 2종 + host + hexagon 동일 controller, 채택·복원(테스트 전용 device fixture)
 │   ├── test_mlir_and_deit.py          # recipe 의미 보존(host JIT), reproducer, DeiT strict load·corpus
 │   ├── test_aot.py                    # downgrade 규칙, max/min bit-exact, host AOT, Hexagon object + twin, NaN 회귀
+│   ├── test_architecture.py           # 의존 방향 규칙(AST), transforms 오류 계약, recipe 실패 기록 회귀
 │   └── test_importers.py              # QNN JSON / Chrome Trace 파싱, 이름 매핑, hint→seed (합성 fixture)
 │
 └── .cache/                            # (gitignore) HF 가중치 snapshot, linalg bytecode, AOT 산출물(.ll/.o/.so)
@@ -119,7 +123,10 @@ flowchart TB
         CON["contract.py<br/>허용 오차 (버전)"]
         STO["store.py<br/>불변 기록 · backend별 best"]
         WL["workloads/<br/>DeiT-tiny · corpus · reference"]
-        MH["mlir_host.py<br/>export · verify · recipe · host JIT"]
+        FE["frontend.py<br/>workload → 검증된 linalg IR"]
+        TR["transforms.py<br/>IR recipe 적용 · 오류 계약"]
+        PR["profilers.py<br/>host wall-clock · none"]
+        MH["mlir_host.py<br/>저수준 MLIR 도구"]
     end
 
     REG["registry.py<br/>BackendRegistry"]
@@ -142,8 +149,11 @@ flowchart TB
     CTL --> REG
     REG --> HEX & HOST & MOCK & AOTH & AOTX
     REG -.-> NEXT
-    HEX --> MH
-    HOST --> MH
+    HEX & HOST & AOTH & AOTX --> FE
+    HEX & HOST & AOTH & AOTX --> TR
+    HOST & AOTH & AOTX --> PR
+    FE --> MH
+    TR --> MH
     AOTH --> AOTM["aot.py<br/>downgrade · max/min 확장 · llc"]
     AOTX --> AOTM
     AOTM --> MH
@@ -256,6 +266,13 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 새 벤더를 추가하려면 `nux/backends/<vendor>.py`에서 `@register("<id>")`로 bundle을 등록하고,
 `configs/`와 conformance test만 추가하면 된다. 공통 모듈은 바꾸지 않는다.
 
+**의존 방향 규칙** (`tests/test_architecture.py`가 AST로 검사):
+* backend는 다른 backend를 import하지 않는다. 공유가 필요한 것은 공통 모듈로 올린다:
+  `frontend.py`(baseline IR), `transforms.py`(IR recipe), `profilers.py`(측정기).
+* 공통 모듈은 `backends`와 `importers`를 import하지 않는다 (registry의 동적 로딩만 예외).
+* IR recipe 적용은 `transforms.apply_ir_recipe` 하나뿐이다. 전제조건 불충족은 `Unsupported`, pass·verifier 실패는
+  `CompileFailure`로 일관되게 기록된다.
+
 ### 1.7 상태 사다리와 채택 게이트
 
 실패는 `rejected`와 실패 분류(`unsupported`, `compile_failure`, `runtime_failure`,
@@ -286,7 +303,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
 | 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
-| 테스트 | `python -m pytest -q tests` | 28 passed |
+| 테스트 | `python -m pytest -q tests` | 51 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 
