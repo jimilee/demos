@@ -1,0 +1,180 @@
+{
+  "experiment_id": "20261118-022632-c84ae8",
+  "candidate": {
+    "action_id": "recipe.fuse-elementwise",
+    "kind": "ir_recipe",
+    "params": {},
+    "hypothesis": "elementwise fusion removes intermediate tensors (2209->2051 ops)",
+    "expected_savings": "materialization between elementwise ops",
+    "possible_costs": "creates rank-5 reshapes on attention scores (see reproducers); register pressure",
+    "scope": "module",
+    "parent_id": "c7db5b495d0f",
+    "payload_files": {},
+    "candidate_id": "283d60b89539"
+  },
+  "backend_id": "llvm-aot-host",
+  "workload_id": "deit-tiny",
+  "contract_id": "deit-tiny-fp32-logits-v0",
+  "state": "host_correct",
+  "failure": null,
+  "failure_detail": "",
+  "stages": [
+    {
+      "stage": "proposed",
+      "status": "passed",
+      "detail": "",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "capability",
+      "status": "passed",
+      "detail": "ok",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "compile",
+      "status": "passed",
+      "detail": "aot object 17.14s 23478656 B",
+      "seconds": 18.446726158000047,
+      "artifacts": {
+        "kind": "shared_library",
+        "provenance": [
+          "torch-mlir fx.export_and_import(output_type=linalg-on-tensors)",
+          "recipe:fuse-elementwise = builtin.module(func.func(linalg-fuse-elementwise-ops),func.func(canonicalize))",
+          "AOT: MLIR own LLVM -> x86-64 .o -> cc -shared"
+        ]
+      }
+    },
+    {
+      "stage": "ir_verify",
+      "status": "passed",
+      "detail": "MLIR verifier (structural only)",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "host_correctness",
+      "status": "passed",
+      "detail": "max_abs_err=1.26e-05 on 4 inputs",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "target_compile",
+      "status": "pending",
+      "detail": "host_reference backend",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "e2e",
+      "status": "pending",
+      "detail": "mode=prepare: no admissible E2E measurement",
+      "seconds": null,
+      "artifacts": {}
+    }
+  ],
+  "requested_config": {},
+  "effective_config": {
+    "opt_level": 2,
+    "_backend_kind": "host_reference"
+  },
+  "ir_hashes": {
+    "linalg-on-tensors": "9680e94e05b6d45e2dbd3fa5fc96d5a153ef4aef2f5c4bae64364d686afa6b61"
+  },
+  "artifact_hashes": {
+    "object": "224b490a8d70abcde26e783ec68caa473a542825df2bfaa29a81203405310676",
+    "shared_library": "1ff4f5bdae2aad70e9355d977b42c8cd6595f5d1da9a4b11363ae04fd796479b"
+  },
+  "correctness": {
+    "ok": true,
+    "n_inputs": 4,
+    "n_failed": 0,
+    "max_abs_err": 1.2636184692382812e-05,
+    "failed_inputs": [],
+    "task_accuracy": "pending",
+    "splits": [
+      "tune",
+      "stress"
+    ],
+    "per_input": [
+      {
+        "input_id": "tune_blobs_1",
+        "ok": true,
+        "max_abs_err": 9.119510650634766e-06,
+        "mean_abs_err": 2.055324614048004e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "tune_blobs_2",
+        "ok": true,
+        "max_abs_err": 1.2636184692382812e-05,
+        "mean_abs_err": 1.6635581851005554e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "stress_white_0",
+        "ok": true,
+        "max_abs_err": 2.950429916381836e-06,
+        "mean_abs_err": 6.980448961257934e-07,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "stress_black_0",
+        "ok": true,
+        "max_abs_err": 3.933906555175781e-06,
+        "mean_abs_err": 7.529931608587504e-07,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      }
+    ]
+  },
+  "measurement": null,
+  "decision": {
+    "verdict": "pending",
+    "reasons": [
+      "prepare mode: acceptance requires device E2E"
+    ]
+  },
+  "toolchain_lock": {
+    "python": "3.13.18",
+    "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+    "torch": "2.15.0",
+    "torch-mlir": "20261101",
+    "transformers": "5.23.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "hexagon": {
+      "toolchain_importable": false,
+      "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+      "HEXAGON_ARCH_VERSION": null,
+      "HEXAGON_SDK_ROOT": null,
+      "HEXAGON_TOOLS": null,
+      "HEXKL_ROOT": null,
+      "adb": null,
+      "device_state": null,
+      "source_rev_assumed": "9ec15e8"
+    }
+  },
+  "cache_key": "81deb9380023dc552398",
+  "created_at": "2026-11-18T02:28:25+0000",
+  "schema_version": "nux-schema-0.1"
+}

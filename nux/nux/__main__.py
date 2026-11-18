@@ -6,6 +6,7 @@
   corpus                      A4: numeric/regression corpus    -> workloads/*.corpus.json
   ir [--host-inputs N]        A1: linalg export, verifier, recipes, host JIT vs eager, reshape reproducers
   smoke --backend B           A2: compile smoke (min op / one block / full model) per backend
+  aot [--targets ...]         AOT: host .so (MLIR LLVM) + llc twin x86 + llc Hexagon object, with correctness
   run --config C              controller: baseline + candidates (prepare mode unless device E2E is admissible)
   status                      best-known state per (backend, workload, contract)
 """
@@ -207,6 +208,75 @@ def cmd_smoke(a):
     _w(REPORTS / f"a2_smoke_{a.backend}.json", {"workload": a.id, "backend": a.backend, "lock": toolchain_lock(), "levels": rows})
 
 
+def cmd_aot(a):
+    import shutil
+    import subprocess
+
+    import torch
+
+    from . import aot
+    from . import contract as C
+    from . import mlir_host as H
+    from .workloads import get
+
+    w = get(a.id)
+    contract = C.get(a.contract)
+    mod = H.export(w.module(), w.example_inputs(), w.func_name)
+    corpus = w.corpus()
+    sel = [x for x in corpus if x["split"] == "tune"][: a.inputs] + [x for x in corpus if x["split"] == "stress"][: a.stress]
+    d = aot.workdir()
+    rt = aot.result_type(mod)
+    rep = {"workload": a.id, "ir_sha256": mod.sha256, "llc": aot.llc_path(), "llc_version": aot.llc_version(),
+           "llc_has_hexagon": "hexagon" in aot.llc_targets(), "workdir": str(d.relative_to(ROOT)), "routes": {}}
+
+    def check(lib):
+        per = []
+        for x in sel:
+            t = time.perf_counter()
+            y = torch.from_numpy(lib(*[t_.numpy() for t_ in x["tensors"]]))
+            r = C.compare(contract, y, w.reference(x["tensors"]))
+            r.update(input_id=x["id"], run_s=round(time.perf_counter() - t, 2))
+            per.append({k: r.get(k) for k in ("input_id", "ok", "max_abs_err", "top1_match", "run_s")})
+        return {"ok": all(p["ok"] for p in per), "max_abs_err": max(p["max_abs_err"] for p in per), "per_input": per}
+
+    o = aot.host_object_via_mlir(mod, d / "host_mlir.o")
+    so = aot.link_shared([d / "host_mlir.o"], d / "libhost_mlir.so")
+    rep["routes"]["host-mlir-llvm"] = {**o, "so_sha256": so["sha256"],
+                                       "correctness": check(aot.AOTLibrary(d / "libhost_mlir.so", mod.func_name, rt))}
+    print(f"[host-mlir-llvm] ok={rep['routes']['host-mlir-llvm']['correctness']['ok']}")
+    t = time.perf_counter()
+    ll, counts = aot.downgrade_llvm_ir(aot.to_llvm_ir(mod))
+    ll, nmm = aot.expand_fmaxmin(ll)
+    (d / "model.ll").write_text(ll)
+    rep["downgrade"] = {"llvm_ir_bytes": len(ll), "rewrites": counts, "fmaxmin_expanded": nmm,
+                        "seconds": round(time.perf_counter() - t, 1), "llvm_ir_sha256": H.sha(ll)}
+    for tgt in a.targets.split(","):
+        out = d / f"model_{tgt}.o"
+        try:
+            r = aot.llc_compile(d / "model.ll", tgt, out)
+        except Exception as e:  # noqa: BLE001
+            rep["routes"][f"llc-{tgt}"] = {"ok": False, "error": str(e)[:800]}
+            print(f"[llc {tgt}] FAILED {str(e)[:120]}")
+            continue
+        entry = dict(r)
+        nm = shutil.which("llvm-nm-18") or shutil.which("llvm-nm")
+        if nm:
+            syms = subprocess.run([nm, "--defined-only", str(out)], capture_output=True, text=True).stdout
+            entry["entry_symbol"] = [l.split()[-1] for l in syms.splitlines() if mod.func_name in l][:4]
+            undef = subprocess.run([nm, "--undefined-only", str(out)], capture_output=True, text=True).stdout
+            entry["undefined_symbols"] = sorted({l.split()[-1] for l in undef.splitlines()})
+        if tgt == "x86_64":
+            aot.link_shared([out], d / "libtwin.so")
+            entry["correctness"] = check(aot.AOTLibrary(d / "libtwin.so", mod.func_name, rt))
+            entry["note"] = "twin build of the exact downgraded IR used for the Hexagon object"
+        else:
+            entry["execution"] = "pending: needs Hexagon SDK runtime (FastRPC skel / run_main_on_hexagon) and a device"
+        rep["routes"][f"llc-{tgt}"] = entry
+        print(f"[llc {tgt}] {entry['file']} {entry['bytes']} B {entry['seconds']}s"
+              + (f" ok={entry['correctness']['ok']}" if "correctness" in entry else ""))
+    _w(REPORTS / f"aot_{a.id}.json", rep)
+
+
 def cmd_run(a):
     from . import contract as C
     from . import registry, stats
@@ -257,6 +327,10 @@ def main(argv=None):
     s.add_argument("--host-inputs", type=int, default=2); s.add_argument("--host-stress", type=int, default=1)
     s.add_argument("--jit-recipes", default="fold-unit-extent-dims")
     s = sub.add_parser("smoke"); s.add_argument("--id", default="deit-tiny"); s.add_argument("--backend", default="hexagon-mlir")
+    s = sub.add_parser("aot"); s.add_argument("--id", default="deit-tiny")
+    s.add_argument("--contract", default="deit-tiny-fp32-logits-v0")
+    s.add_argument("--targets", default="x86_64,hexagon-v73")
+    s.add_argument("--inputs", type=int, default=2); s.add_argument("--stress", type=int, default=1)
     s = sub.add_parser("run"); s.add_argument("--config", required=True)
     s = sub.add_parser("status"); s.add_argument("--store", default="store")
     a = ap.parse_args(argv)

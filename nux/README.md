@@ -36,6 +36,7 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   ├── contract.py                    # 정확성 계약 (deit-tiny-fp32-logits-v0, toy-fp32-v0)
 │   ├── store.py                       # 불변 기록, backend별 best 격리, cache key, results.tsv
 │   ├── mlir_host.py                   # 벤더 중립 MLIR 도구: export, verifier, IR recipe, host LLVM JIT, reshape reproducer
+│   ├── aot.py                         # AOT: MLIR LLVM .o/.so, LLVM IR downgrade, max/min 확장, llc (x86-64 / Hexagon), ctypes
 │   ├── corpus.py                      # 수치·회귀 corpus 생성기 (tune / holdout / stress)
 │   │
 │   ├── workloads/                     # Workload registry
@@ -47,11 +48,14 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       ├── __init__.py
 │       ├── hexagon.py                 # hexagon-mlir: capability(rev 9ec15e8), translate_linalg_to_obj, one-shot launcher
 │       ├── host_linalg.py             # host-linalg-jit: torch-mlir linalg → LLVM → ExecutionEngine (host 기준 경로)
+│       ├── llvm_aot.py                # llvm-aot-host (.so AOT) / llvm-aot-hexagon (upstream LLVM Hexagon object + twin 검증)
 │       └── mock.py                    # mock-mlir / mock-sdk: A3 구조 검증용 (synthetic 시간, 채택 불가)
 │
 ├── configs/                           # 실험 설정 (backend_id, profiles, workload, contract, candidates, budget, policy)
 │   ├── deit_hexagon.json              # DeiT × hexagon-mlir
 │   ├── deit_host_prepare.json         # DeiT × host-linalg-jit (준비 모드)
+│   ├── deit_aot_host.json             # DeiT × llvm-aot-host
+│   ├── deit_aot_hexagon.json          # DeiT × llvm-aot-hexagon (Hexagon object까지)
 │   ├── a3_mock_mlir.json              # A3: MLIR형 mock
 │   └── a3_mock_sdk.json               # A3: SDK형 mock
 │
@@ -65,6 +69,8 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   ├── a1_deit-tiny_ir.json           # A1: IR 통계, recipe 결과, host JIT 정확성
 │   ├── a2_smoke_hexagon-mlir.json     # A2: LayerNorm / block / 전체 모델 compile smoke
 │   ├── a2_smoke_host-linalg-jit.json
+│   ├── a2_smoke_llvm-aot-hexagon.json # LayerNorm / block / 전체 모델 Hexagon object 생성
+│   ├── aot_deit-tiny.json             # AOT: host .so · llc twin x86 · llc Hexagon v73 (크기·hash·심볼·정확성)
 │   └── reproducers/*.mlir             # unit-dim reshape, rank-5 reshape 최소 reproducer
 │
 ├── store/                             # DeiT 실험 기록
@@ -75,13 +81,14 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       └── candidates/<cand>.json     # 후보별 불변 기록 (stage·IR hash·정확성·측정·판정)
 ├── store_mock/                        # A3 mock 실험 기록 (같은 구조)
 │
-├── tests/                             # pytest (15개)
+├── tests/                             # pytest (20개)
 │   ├── conftest.py
 │   ├── test_core.py                   # capability 필터, 통계, 적격성, 계약, 불변 저장, 벤더 분기 금지
 │   ├── test_controller.py             # mock 2종 + host + hexagon 동일 controller, 채택·복원(테스트 전용 device fixture)
-│   └── test_mlir_and_deit.py          # recipe 의미 보존(host JIT), reproducer, DeiT strict load·corpus
+│   ├── test_mlir_and_deit.py          # recipe 의미 보존(host JIT), reproducer, DeiT strict load·corpus
+│   └── test_aot.py                    # downgrade 규칙, max/min bit-exact, host AOT, Hexagon object + twin, NaN 회귀
 │
-└── .cache/                            # (gitignore) HF 가중치 snapshot, linalg bytecode
+└── .cache/                            # (gitignore) HF 가중치 snapshot, linalg bytecode, AOT 산출물(.ll/.o/.so)
 ```
 
 ### 1.2 계층 구조
@@ -109,6 +116,8 @@ flowchart TB
         HEX["hexagon-mlir<br/>kind=device<br/>E2E: unavailable"]
         HOST["host-linalg-jit<br/>kind=host_reference<br/>host 시간만"]
         MOCK["mock-mlir / mock-sdk<br/>kind=mock<br/>synthetic 시간"]
+        AOTH["llvm-aot-host<br/>kind=host_reference<br/>AOT .so"]
+        AOTX["llvm-aot-hexagon<br/>kind=device · codegen only<br/>Hexagon object"]
         NEXT["(2번째 벤더)<br/>C0–C2 예정"]
     end
 
@@ -119,10 +128,14 @@ flowchart TB
     CTL --> STO
     CTL --> WL
     CTL --> REG
-    REG --> HEX & HOST & MOCK
+    REG --> HEX & HOST & MOCK & AOTH & AOTX
     REG -.-> NEXT
     HEX --> MH
     HOST --> MH
+    AOTH --> AOTM["aot.py<br/>downgrade · max/min 확장 · llc"]
+    AOTX --> AOTM
+    AOTM --> MH
+    AOTM -->|"llc -march=hexagon"| LLC["system LLVM 18<br/>(hexagonv73)"]
     HEX -->|"translate_linalg_to_obj<br/>run_torch_mlir"| SDK["Hexagon-MLIR toolchain<br/>+ Snapdragon cDSP"]
 ```
 
@@ -190,7 +203,11 @@ flowchart LR
     M -->|"torch-mlir fx.export_and_import"| LIN["linalg-on-tensors<br/>2209 ops"]
     LIN -->|"IR recipe<br/>(DropUnitDims · fusion ...)"| LIN2["후보 IR"]
     LIN2 -->|"host pipeline → LLVM"| JIT["MLIR ExecutionEngine<br/>(host CPU)"]
-    LIN2 -->|"translate_linalg_to_obj"| OBJ["Hexagon object<br/>(toolchain 필요)"]
+    LIN2 -->|"translate_linalg_to_obj"| OBJ["Hexagon-MLIR object<br/>(toolchain 필요)"]
+    LIN2 -->|"lower → LLVM IR<br/>downgrade · max/min 확장"| LL["LLVM IR (151 MB)"]
+    LL -->|"llc x86-64"| TWIN["twin .so (host)<br/>같은 IR 의미 검증"]
+    LL -->|"llc hexagonv73"| HOBJ["Hexagon ELF object<br/>23.5 MB (실행은 SDK·단말 필요)"]
+    TWIN --> CMP
     OBJ -->|"run_torch_mlir"| DEV["Snapdragon cDSP<br/>(단말 필요)"]
     JIT --> CMP{"contract 비교"}
     DEV --> CMP
@@ -206,6 +223,8 @@ flowchart LR
 | `hexagon-mlir` | device | Hexagon-MLIR (rev `9ec15e8` 기준 capability). linalg → `translate_linalg_to_obj` → target object. 단말 정확성은 공식 one-shot launcher(`run_torch_mlir`) | **unavailable**: 공개 launcher는 호출마다 독립 프로세스로 실행되고 session 재사용이 없다. 계획 §9.1의 요청 경계 runner는 adapter 선행 과제 |
 | `host-linalg-jit` | host_reference | torch-mlir linalg → LLVM → MLIR ExecutionEngine (host CPU). IR 후보의 `ir_valid`/`host_correct` 증거 | host 시간만 (채택 불가) |
 | `mock-mlir`, `mock-sdk` | mock | A3 구조 검증. 출력은 실제 framework 결과, 시간은 synthetic | synthetic (채택 불가) |
+| `llvm-aot-host` | host_reference | AOT: MLIR 자체 LLVM으로 x86-64 `.o` → `.so`, ctypes로 실행 | host 시간만 (채택 불가) |
+| `llvm-aot-hexagon` | device (codegen only) | AOT: upstream LLVM(llc 18) Hexagon v73 object. 같은 IR의 x86 twin으로 의미 검증. **Hexagon-MLIR 파이프라인이 아님** | unavailable (SDK runtime·단말 필요) |
 
 새 벤더를 추가하려면 `nux/backends/<vendor>.py`에서 `@register("<id>")`로 bundle을 등록하고,
 `configs/`와 conformance test만 추가하면 된다. 공통 모듈은 바꾸지 않는다.
@@ -236,7 +255,10 @@ flowchart LR
 | **A3** 구조 | `python -m nux run --config configs/a3_mock_{mlir,sdk}.json`, `pytest` | 같은 controller에 두 mock을 연결: 지원 action 필터가 다르게 동작하고, synthetic 1.5x 후보는 `not_admissible`, 주입한 compile·runtime·정확성 실패는 각각 분류되며 best는 유지된다 |
 | DeiT 준비 실험 | `python -m nux run --config configs/deit_host_prepare.json` | baseline `host_correct`. `fold-unit-extent-dims`·`fuse-elementwise` → `host_correct`, verdict `pending`. `canonicalize-cse` → IR이 동일해 측정 생략. `kernel.replace` → capability로 차단 |
 | DeiT Hexagon 실험 | `python -m nux run --config configs/deit_hexagon.json` | baseline과 옵션·recipe 후보 → `ir_valid` (target compile pending). `path.hexkl_matmul` → **fp32 모델이라 차단** (HexKL은 f16 입력만 지원, dtype 변경 금지). Triton kernel 교체 → ABI 미검증으로 차단 |
-| 테스트 | `python -m pytest -q tests` | 15 passed |
+| **AOT** | `python -m nux aot` | DeiT-tiny 전체를 AOT 컴파일. host `.so`(MLIR LLVM, 23.9 MB)와 llc twin x86 모두 max abs err 1.26e-5. **Hexagon v73 ELF object(QUALCOMM DSP6) 23.5 MB** 생성 (`reports/aot_deit-tiny.json`) |
+| A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
+| DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
+| 테스트 | `python -m pytest -q tests` | 20 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 
@@ -247,6 +269,41 @@ flowchart LR
 * host에서는 이 fused IR이 verifier를 통과하고 결과도 정확하다(위 표). 보고된 assertion은
   아직 **재현하지 못했다**. Hexagon 파이프라인(DropUnitDims 등)에 이 IR을 넣어 재현을 시도하는 것이
   toolchain이 생기면 첫 작업이다.
+
+## 2.5 AOT 컴파일
+
+JIT(ExecutionEngine) 외에 **AOT 경로 두 가지**를 구현했다 (`nux/aot.py`, `nux/backends/llvm_aot.py`).
+
+| 경로 | 과정 | 산출물 | 실행 |
+|---|---|---|---|
+| host-mlir-llvm | linalg → LLVM dialect → `ExecutionEngine.dump_to_object_file` (torch-mlir에 포함된 LLVM) → `cc -shared` | x86-64 `.o` / `.so` | ctypes로 `_mlir_ciface_<func>` 호출 |
+| llc | linalg → LLVM IR text → **downgrade** → **max/min 확장** → system `llc` | x86-64 twin `.o`, **Hexagon v73 `.o`** | twin만 host에서 실행 |
+
+* **downgrade가 필요한 이유**: torch-mlir의 LLVM이 system LLVM 18보다 새롭다. 새 IR 문법을 18용으로 바꾼다.
+  * float 상수 `f0x…`, 최단 십진 표기, `±inf`를 정확한 hex 값으로 바꾼다. 리터럴이 `float`인지 `double`인지 맥락에 맞춰 변환한다.
+  * 신규 플래그·속성(`gep nuw/nusw`, `icmp samesign`, `trunc nuw/nsw`, `captures(…)`, `nocreateundeforpoison` 등)은 제거한다. 최적화 가정만 빠질 뿐 의미는 바뀌지 않는다.
+  * DeiT에서는 gep 2517곳, 속성 6곳을 바꿨다.
+* **max/min 확장**: LLVM 18의 Hexagon backend는 `llvm.maximum.f32`(softmax의 NaN 전파 max)를 선택하지 못한다
+  (`Cannot select: fmaximum`). 그래서 IEEE maximum/minimum 의미(NaN 전파, −0 < +0)를 그대로 지키는 IR helper로 바꾼다.
+  ±0, ±inf, NaN, subnormal 200쌍에서 LLVM 내장 함수와 bit 단위로 일치함을 테스트로 확인했다. DeiT에서 12곳을 바꿨다.
+* **twin 검증**: Hexagon object에 넣은 **바로 그 IR**을 x86-64로도 컴파일해 실행한다.
+  DeiT에서 eager 대비 max abs err 1.26e-5로, MLIR LLVM 경로와 같은 값이 나왔다.
+  그래서 downgrade와 확장이 의미를 바꾸지 않았음을 확인했다. 단 Hexagon codegen 자체의 정확성은 단말에서만 확인할 수 있다.
+* **Hexagon object 정보**: `ELF 32-bit LSB relocatable, QUALCOMM DSP6`, 23.5 MB, 진입 심볼 `_mlir_ciface_deit_tiny`.
+  미해결 심볼은 `__hexagon_divsf3`, `__hexagon_divdf3`, `__hexagon_sqrtf`, `erff`, `expf`, `malloc`, `memcpy`이며,
+  Hexagon SDK의 compiler-rt와 libc가 제공한다.
+* **한계**:
+  * upstream LLVM 코드 생성(scalar 코드 + LLVM 자동 벡터화)이며 Hexagon-MLIR의 VTCM/DMA/HexKL 최적화는 없다.
+    성능 기준선이 아니라 "타깃 코드가 생성되는가"를 보여 주는 A2 증거다.
+  * LLVM 18은 hexagonv73까지만 지원한다. v75 이상은 LLVM 19 이상이 필요하다 (`NUX_LLC`, `NUX_LLVM_HEXAGON_TARGET`).
+  * 실행하려면 Hexagon SDK의 FastRPC skel 또는 `run_main_on_hexagon`과 단말이 필요하다. 그래서 상태는 `target_compiled`에서 멈춘다.
+
+### 함께 발견한 것: torch-mlir의 `torch.maximum` NaN 처리
+
+torch-mlir 20261101은 `torch.maximum`/`torch.minimum`을 `cmpf + select`로 lowering한다.
+**첫 번째 피연산자가 NaN이면 NaN을 버린다** (torch는 NaN을 전파한다). JIT와 AOT 모두에서 똑같이 나타나는 front-end 특성이다.
+DeiT는 이 연산을 쓰지 않으므로(softmax는 NaN을 전파하는 `arith.maximumf` 사용) 결과에는 영향이 없다.
+계획 §10의 NaN/Inf 정책에 따라 `tests/test_aot.py::test_torch_mlir_maximum_nan_divergence_is_tracked`로 추적한다.
 
 ## 3. 재현
 
@@ -259,7 +316,10 @@ python -m nux env
 python -m nux workload               # A0 (가중치는 .cache/에 받는다. 커밋하지 않음)
 python -m nux corpus                 # A4
 python -m nux ir --jit-recipes fold-unit-extent-dims,fuse-elementwise   # A1 (~3분)
-python -m nux smoke --backend hexagon-mlir                               # A2
+python -m nux smoke --backend hexagon-mlir                               # A2 (Hexagon-MLIR: toolchain 필요)
+python -m nux smoke --backend llvm-aot-hexagon                           # A2 (upstream LLVM Hexagon object)
+python -m nux aot                                                        # AOT 보고서 (~2분)
+python -m nux run --config configs/deit_aot_hexagon.json
 python -m nux run --config configs/a3_mock_mlir.json                     # A3
 python -m nux run --config configs/deit_host_prepare.json
 python -m nux run --config configs/deit_hexagon.json
@@ -294,7 +354,7 @@ python -m nux run --config configs/deit_hexagon.json
 |---|---|
 | A0 workload 고정 | 완료 (가중치·config·processor hash, 구조, 결정성) |
 | A1 IR·host 검증 | 완료: linalg export + host JIT 실행 비교 (corpus 일부). 중간 activation 비교는 미구현 |
-| A2 compile smoke | 대상 독립 단계까지만 완료. target object 생성은 toolchain 필요 |
+| A2 compile smoke | upstream LLVM으로 Hexagon v73 object 생성까지 완료 (LayerNorm·block·전체 모델, twin 검증). Hexagon-MLIR 파이프라인의 object는 toolchain 필요 |
 | A3 공통 구조 | 완료: 두 mock + host + Hexagon adapter를 같은 controller에 연결. mock 채택 금지를 검증 |
 | A4 corpus | 합성 이미지·stress·holdout 완료. 라벨 있는 평가셋(task accuracy)은 pending |
 | B0–B3 단말 성능 | 미착수: 단말, SDK, E2E device runner 필요 |

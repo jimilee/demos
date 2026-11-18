@@ -1,0 +1,7 @@
+{
+  "record": "experiments/20261118-022829-e781cf/candidates/c7db5b495d0f.json",
+  "chain": [],
+  "state": "target_compiled",
+  "mode": "prepare",
+  "note": "baseline stopped at target_compiled: Hexagon object built; executing it needs the Hexagon SDK runtime (FastRPC skel / run_main_on_hexagon) and a device"
+}

@@ -106,13 +106,28 @@ class Controller:
             return self._record(cand, state, stages, art, detail=art.pending)[0], art, None
         if art.target_compiled and self.b.kind == "device":
             state = State.TARGET_COMPILED
+        if art.twin is not None:  # host build of the exact target-bound IR: semantics check, not device evidence
+            import torch
+
+            tc = evaluator.check_correctness(
+                lambda ts: torch.from_numpy(art.twin(*[t_.detach().contiguous().numpy() for t_ in ts])),
+                self.w, self.c, self.corpus, splits=tuple(self.cfg.get("correctness_splits", ["tune", "stress"])))
+            if not tc["ok"]:
+                stages.append(StageRecord("twin_correctness", Evidence.FAILED.value, str(tc["failed_inputs"][:3])))
+                return self._record(cand, State.REJECTED, stages, art, Failure.CORRECTNESS_FAILURE,
+                                    "twin: " + str(tc["failed_inputs"][:3]), _slim(tc))[0], art, None
+            stages.append(StageRecord("twin_correctness", Evidence.PASSED.value,
+                                      f"{art.twin_note}: max_abs_err={tc['max_abs_err']:.3g} on {tc['n_inputs']} inputs"))
+            self._twin_corr = _slim(tc)
+        else:
+            self._twin_corr = None
 
         # ---- correctness ----
         try:
             session = self.b.runtime.prepare_session(art)
         except DeviceUnavailable as e:
             stages.append(StageRecord("device_correctness", Evidence.PENDING.value, str(e)))
-            return self._record(cand, state, stages, art, detail=str(e))[0], art, None
+            return self._record(cand, state, stages, art, detail=str(e), corr=self._twin_corr)[0], art, None
         except BackendError as e:
             stages.append(StageRecord("load", Evidence.FAILED.value, str(e)))
             return self._record(cand, State.REJECTED, stages, art, Failure(e.failure), str(e))[0], art, None

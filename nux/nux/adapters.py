@@ -49,6 +49,8 @@ class Artifact:
     provenance: list = field(default_factory=list)  # applied transforms, in order
     target_compiled: bool = False  # True only if code for the target architecture was produced
     pending: str = ""  # why a later stage could not run in this environment (e.g. toolchain_unavailable)
+    twin: object = None  # optional host-executable build of the EXACT IR given to the target codegen
+    twin_note: str = ""
     log: str = ""
 
 
