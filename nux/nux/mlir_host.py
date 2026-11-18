@@ -41,26 +41,29 @@ class Recipe:
     numeric_change: str = "none"
     preconditions: tuple = ()
     notes: str = ""
+    tags: tuple = ()
 
 
 RECIPES = {r.recipe_id: r for r in [
     Recipe("canonicalize-cse", "builtin.module(func.func(canonicalize,cse))", "linalg-on-tensors",
-           "folding/canonical forms + common subexpression elimination", r"linalg\.|tensor\.|arith\."),
+           "folding/canonical forms + common subexpression elimination", r"linalg\.|tensor\.|arith\.",
+           tags=("cleanup",)),
     Recipe("fold-unit-extent-dims", "builtin.module(func.func(linalg-fold-unit-extent-dims),func.func(canonicalize))",
            "linalg-on-tensors",
            "DropUnitDims: remove size-1 loop dims of linalg ops via collapse/expand reshapes; element order unchanged",
            r"tensor<1x", preconditions=("static shapes", "reassociation groups contiguous"),
-           notes="related to the reported DeiT 5D collapse_shape assertion; result must be re-checked on target"),
+           notes="related to the reported DeiT 5D collapse_shape assertion; result must be re-checked on target",
+           tags=("layout", "reshape")),
     Recipe("fold-unit-extent-dims-slices",
            "builtin.module(func.func(linalg-fold-unit-extent-dims{use-rank-reducing-slices}),func.func(canonicalize))",
            "linalg-on-tensors", "DropUnitDims using rank-reducing extract/insert_slice instead of reshapes",
-           r"tensor<1x", preconditions=("static shapes",)),
+           r"tensor<1x", preconditions=("static shapes",), tags=("layout", "reshape")),
     Recipe("fuse-elementwise", "builtin.module(func.func(linalg-fuse-elementwise-ops),func.func(canonicalize))",
            "linalg-on-tensors", "producer/consumer fusion of elementwise linalg.generic ops (removes materialization)",
-           r"linalg\.generic", notes="can raise buffer lifetime/register pressure on target"),
+           r"linalg\.generic", notes="can raise buffer lifetime/register pressure on target", tags=("fusion", "memory")),
     Recipe("generalize-named-ops", "builtin.module(func.func(linalg-generalize-named-ops))", "linalg-on-tensors",
            "rewrite named ops (matmul, transpose, ...) as linalg.generic", r"linalg\.(matmul|batch_matmul|transpose)",
-           notes="may hide library-path patterns (e.g. HexKL matmul matching) on targets"),
+           notes="may hide library-path patterns (e.g. HexKL matmul matching) on targets", tags=("codegen",)),
 ]}
 
 

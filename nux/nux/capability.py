@@ -11,6 +11,9 @@ from dataclasses import asdict, dataclass, field
 SUPPORT = ("supported", "experimental", "unavailable")
 VALIDATION = ("validated", "unvalidated", "failed")
 ACTION_KINDS = ("config", "ir_recipe", "kernel", "lowering_path", "baseline")
+# shared vocabulary between vendor hints and backend actions
+TAGS = ("fusion", "layout", "reshape", "tiling", "memory", "threading", "vector", "reduction", "codegen",
+        "library_matmul", "kernel", "partition", "precision", "cleanup")
 
 
 @dataclass
@@ -36,11 +39,13 @@ class ActionSpec:
     support: str = "supported"
     validation: str = "unvalidated"
     evidence: str = ""  # where the support claim comes from (source file, doc, run id)
+    tags: list = field(default_factory=list)  # optimization categories (fusion, layout, tiling, ...) used to map hints
 
     def __post_init__(self):
         assert self.kind in ACTION_KINDS, self.kind
         assert self.support in SUPPORT, self.support
         assert self.validation in VALIDATION, self.validation
+        assert all(t in TAGS for t in self.tags), self.tags
         self.params = [p if isinstance(p, ParamSpec) else ParamSpec(**p) for p in self.params]
 
 

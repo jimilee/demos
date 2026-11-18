@@ -37,21 +37,21 @@ BACKEND_ID = "hexagon-mlir"
 SOURCE_REV = "9ec15e8"
 EVID = f"qcom_hexagon_backend/backend/hexagon_options.py @ {SOURCE_REV}"
 
-# (option, type, description, support)  -- HexagonOptions fields relevant to the torch-mlir path
+# (option, type, description, support, tags)  -- HexagonOptions fields relevant to the torch-mlir path
 OPTIONS = [
-    ("fusion", "bool", "linalg fusion", "supported"),
-    ("fusionAllowRecompute", "bool", "fusion may recompute producers", "supported"),
-    ("fusionDoMultiUse", "bool", "fuse producers with multiple uses", "supported"),
-    ("enableVectorization", "bool", "HVX vectorization", "supported"),
-    ("enableVTCMTiling", "bool", "tile linalg.generic into VTCM", "supported"),
-    ("enableConvertToHexagonmem", "bool", "rewrite memref alloc/copy to hexagonmem", "supported"),
-    ("enableHexagonmemCopyToDMA", "bool", "hexagonmem copies via DMA", "supported"),
-    ("enableDoubleBuffering", "bool", "double buffering", "experimental"),
-    ("enableMultiThreading", "bool", "linalg-generic multithreading (FormVirtualThreads)", "supported"),
-    ("enableSplitReduction", "bool", "split-reduction", "supported"),
-    ("enableHVXInlining", "bool", "HVX inlining", "supported"),
-    ("enableSCFLoopUnroll", "bool", "scf loop unroll", "supported"),
-    ("enableConversionToFp16", "bool", "convert to fp16", "unavailable"),  # violates fixed dtype contract
+    ("fusion", "bool", "linalg fusion", "supported", ["fusion"]),
+    ("fusionAllowRecompute", "bool", "fusion may recompute producers", "supported", ["fusion"]),
+    ("fusionDoMultiUse", "bool", "fuse producers with multiple uses", "supported", ["fusion"]),
+    ("enableVectorization", "bool", "HVX vectorization", "supported", ["vector", "codegen"]),
+    ("enableVTCMTiling", "bool", "tile linalg.generic into VTCM", "supported", ["tiling", "memory"]),
+    ("enableConvertToHexagonmem", "bool", "rewrite memref alloc/copy to hexagonmem", "supported", ["memory"]),
+    ("enableHexagonmemCopyToDMA", "bool", "hexagonmem copies via DMA", "supported", ["memory"]),
+    ("enableDoubleBuffering", "bool", "double buffering", "experimental", ["memory"]),
+    ("enableMultiThreading", "bool", "linalg-generic multithreading (FormVirtualThreads)", "supported", ["threading"]),
+    ("enableSplitReduction", "bool", "split-reduction", "supported", ["reduction"]),
+    ("enableHVXInlining", "bool", "HVX inlining", "supported", ["codegen"]),
+    ("enableSCFLoopUnroll", "bool", "scf loop unroll", "supported", ["codegen"]),
+    ("enableConversionToFp16", "bool", "convert to fp16", "unavailable", ["precision"]),  # violates fixed dtype contract
 ]
 
 
@@ -87,7 +87,7 @@ def manifest():
     env = _discover()
     fields = set(env.get("options_fields") or [])
     actions = []
-    for name, typ, desc, sup in OPTIONS:
+    for name, typ, desc, sup, tags in OPTIONS:
         if fields and name not in fields:
             sup = "unavailable"
             ev = f"option missing from the importable HexagonOptions ({EVID} lists it)"
@@ -96,22 +96,25 @@ def manifest():
         else:
             ev = EVID
         actions.append(ActionSpec(f"opt.{name}", "config", desc, "compile-options",
-                                  params=[ParamSpec("value", typ)], support=sup, evidence=ev))
+                                  params=[ParamSpec("value", typ)], support=sup, evidence=ev, tags=tags))
     actions.append(ActionSpec("opt.tileSizes", "config", "user tile sizes (backend notes: debugging)", "compile-options",
-                              params=[ParamSpec("value", "str")], support="experimental", evidence=EVID))
+                              params=[ParamSpec("value", "str")], support="experimental", evidence=EVID, tags=["tiling"]))
     actions.append(ActionSpec("path.hexkl_matmul", "lowering_path", "lower matmul via HexKL (HMX)", "compile-options",
                               params=[ParamSpec("mode", "enum", choices=["micro", "macro"])], support="experimental",
                               constraints={"dtypes": ["float16"], "arch_exclude": ["81"]},
                               evidence="MatmulToHexKLPass.cpp: f16 inputs only; user-guide: not valid on v81; "
-                                       "macro mode needs constant weights"))
+                                       "macro mode needs constant weights", tags=["library_matmul", "kernel"]))
     for r in H.RECIPES.values():  # external input-IR recipes, applied before the vendor compiler
         actions.append(ActionSpec(f"recipe.{r.recipe_id}", "ir_recipe", r.meaning, "linalg-on-tensors (pre-compile)",
-                                  support="supported", evidence="upstream MLIR pass on the input IR; target effect unvalidated"))
+                                  support="supported", evidence="upstream MLIR pass on the input IR; target effect unvalidated",
+                                  tags=list(r.tags)))
     actions.append(ActionSpec("kernel.triton_replace", "kernel", "replace a model op with a Triton kernel", "triton-kernel",
                               support="unavailable", requires_runtime=["kernel-binding"],
-                              evidence="no proven symbol/ABI binding between Triton objects and the torch-mlir model path yet"))
+                              evidence="no proven symbol/ABI binding between Triton objects and the torch-mlir model path yet",
+                              tags=["kernel"]))
     actions.append(ActionSpec("kernel.c_replace", "kernel", "replace a model op with a C/C++ kernel", "c-kernel",
-                              support="unavailable", requires_runtime=["kernel-binding"], evidence="ABI integration test not done"))
+                              support="unavailable", requires_runtime=["kernel-binding"], evidence="ABI integration test not done",
+                              tags=["kernel"]))
     return CapabilityManifest(
         backend_id=BACKEND_ID, kind="device", version=f"hexagon-mlir@{SOURCE_REV}",
         compiler_profile="hexagon-mlir/torch-mlir-linalg", runtime_profile="hexagon-standalone-launcher",
@@ -198,7 +201,7 @@ class Compiler(CompilerAdapter):
             hashes[f"obj{i}"] = H.sha(bytes(b))
         return Artifact(BACKEND_ID, "object", payload=mod, files=files, ir_hashes={mod.stage: mod.sha256},
                         artifact_hashes=hashes, requested_config=requested,
-                        effective_config={k: options[k] for k in sorted(options) if k in dict(OPTIONS) or k in cfg},
+                        effective_config={k: options[k] for k in sorted(options) if k in {o[0] for o in OPTIONS} or k in cfg},
                         provenance=prov + [f"translate_linalg_to_obj(arch=v{self.env['HEXAGON_ARCH_VERSION']})"],
                         target_compiled=True)
 

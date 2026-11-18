@@ -97,12 +97,38 @@ class ProfilerAdapter(abc.ABC):
         return {"status": "unavailable"}
 
 
+class ReferenceAdapter(abc.ABC):
+    """Optional: a vendor's OWN compiler used as the initial optimization reference.
+
+    Uses only the vendor's documented outputs (compiled artifacts, inference
+    outputs, profiles, official inspection tools). No disassembly of vendor
+    binaries.
+    """
+
+    @abc.abstractmethod
+    def status(self) -> dict:
+        """{'available': bool, 'missing': [...], ...}: SDK/tool/credential/device availability."""
+
+    @abc.abstractmethod
+    def compile_reference(self, workload, onnx_path, workdir) -> dict:
+        """AOT-compile with the vendor's default optimizations. Returns handle + artifact info."""
+
+    @abc.abstractmethod
+    def run_reference(self, compiled: dict, inputs: list) -> list:
+        """Run on the vendor's real target; returns host-readable outputs (numpy)."""
+
+    @abc.abstractmethod
+    def profile_reference(self, compiled: dict) -> dict:
+        """Vendor profile: {'summary': {...}, 'layers': [{name,type,compute_unit,time_us,cycles}], 'raw': ...}."""
+
+
 @dataclass
 class AdapterBundle:
     manifest: CapabilityManifest
     compiler: CompilerAdapter
     runtime: RuntimeAdapter
     profiler: ProfilerAdapter
+    reference: ReferenceAdapter | None = None
 
     @property
     def backend_id(self):

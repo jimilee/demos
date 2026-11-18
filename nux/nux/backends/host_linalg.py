@@ -35,7 +35,7 @@ def manifest():
     v = _torch_mlir_version()
     actions = [ActionSpec(f"recipe.{r.recipe_id}", "ir_recipe", r.meaning, r.stage, numeric_change=r.numeric_change,
                           support="supported", validation="unvalidated",
-                          evidence=f"upstream MLIR pass pipeline '{r.pipeline}' in torch-mlir {v}")
+                          evidence=f"upstream MLIR pass pipeline '{r.pipeline}' in torch-mlir {v}", tags=list(r.tags))
                for r in H.RECIPES.values()]
     actions += [
         ActionSpec("host.opt_level", "config", "LLVM opt level of the host JIT (host-only knob)", "host-lowering",

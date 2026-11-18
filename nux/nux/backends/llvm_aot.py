@@ -30,7 +30,8 @@ from .host_linalg import Profiler as HostProfiler
 
 
 def _recipe_actions(evidence):
-    return [ActionSpec(f"recipe.{r.recipe_id}", "ir_recipe", r.meaning, r.stage, support="supported", evidence=evidence)
+    return [ActionSpec(f"recipe.{r.recipe_id}", "ir_recipe", r.meaning, r.stage, support="supported", evidence=evidence,
+                       tags=list(r.tags))
             for r in H.RECIPES.values()]
 
 
