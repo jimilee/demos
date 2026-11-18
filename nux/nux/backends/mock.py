@@ -16,10 +16,19 @@ from __future__ import annotations
 
 import random
 
-from ..adapters import AdapterBundle, Artifact, CompilerAdapter, CompileFailure, ProfilerAdapter, RuntimeAdapter, RuntimeFailure, Unsupported
-from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
-from ..registry import register
-from ..schema import Measurement
+from ..core.adapters import (
+    AdapterBundle,
+    Artifact,
+    CompileFailure,
+    CompilerAdapter,
+    ProfilerAdapter,
+    RuntimeAdapter,
+    RuntimeFailure,
+    Unsupported,
+)
+from ..core.capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
+from ..core.schema import Measurement
+from ..engine.registry import register
 
 FAULT = [ParamSpec("fail", "enum", choices=["none", "compile", "runtime"]), ParamSpec("perturb", "str"),
          ParamSpec("synthetic_speedup", "str")]

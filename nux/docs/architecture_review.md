@@ -15,17 +15,17 @@
 
 | # | 심각도 | 문제 | 상태 |
 |---|---|---|---|
-| 1 | 높음 | controller가 숨은 상태(`_pending`, `_twin_corr`)로 흐름을 제어하는 god object | ✅ 단계 pipeline(`stages.py`)과 `CandidateContext` |
+| 1 | 높음 | controller가 숨은 상태(`_pending`, `_twin_corr`)로 흐름을 제어하는 god object | ✅ 단계 pipeline(`engine/stages.py`)과 `CandidateContext` |
 | 2 | 높음 | 테스트 전용 개념(mock 분기)이 운영 로직에 섞임 | ✅ `informational_measurement` config 정책 |
 | 3 | 높음 | backend `kind` 하나에 실행 위치·코드 생성·측정 등급이 섞임 | ✅ 직교 traits(`executes_on`, `target_codegen`, `measurement.tier`) |
-| 4 | 높음 | backend끼리 import하고 front end가 backend 안에 있음 | ✅ `frontend.py` / `transforms.py` / `profilers.py` |
+| 4 | 높음 | backend끼리 import하고 front end가 backend 안에 있음 | ✅ `toolchain/{frontend,transforms,profilers}.py` |
 | 5 | 중간 | `Artifact`가 타입 없는 만능 컨테이너 | ⚠️ 파일 역할·store manifest는 도입, 런타임 핸들 분리는 미완 (2차 #6) |
 | 6 | 중간 | 캐시 key를 계산만 하고 조회 안 함, 작업 디렉토리 누수(4.83 GB) | ⚠️ content-addressed store와 보존 정책 도입, key 구성에 새 결함 (2차 #1·#2) |
 | 7 | 중간 | 기록·config schema 미검증, 모르는 key 무시 | ⚠️ config 엄격 검증·record 검증 완료, store manifest 미검증 |
 | 8 | 중간 | 벤더 격리를 정규식 테스트로만 보장 | ⚠️ import 방향은 AST로 검사, 이름 검사는 일부 모듈만 |
 | 9 | 중간 | registry가 import 부작용에 의존, 장애 격리 없음 | ❌ (2차 #8) |
 | 10 | 낮음–중간 | CLI에 비즈니스 로직과 중복 빌드 경로 | ✅ `services/`, CLI는 파싱·출력만 |
-| 11 | 낮음 | 측정 프로토콜 책임 분산 | ✅ `measurement.py` (`PairedProtocol`) |
+| 11 | 낮음 | 측정 프로토콜 책임 분산 | ✅ `engine/measurement.py` (`PairedProtocol`) |
 | 12 | 낮음 | 힌트 추출이 이름 휴리스틱에 취약 | ❌ (op 분류 순서 버그 1건은 수정) |
 
 ### 1.2 리팩토링 단계
@@ -38,9 +38,10 @@
 | 4 | content-addressed 산출물 저장소와 보존 정책 | `982dc89`, `a9db6dd` | schema 0.3, 실험 ID 충돌 버그 수정, twin `.so`를 `verification` 역할로 보존 |
 | 5 | config·record schema 검증 | `060affc` | **conformance suite는 미완료** |
 | 6 | CLI → services 분리 | `1892fc1` | AOT 보고서가 backend를 직접 호출 |
+| 7 | 평면 모듈 → 계층 패키지 (`core` / `storage` / `toolchain` / `engine`, `hints`→`importers/`, `corpus`→`workloads/`) | 이 문서 다음 커밋 | 계층 의존 방향 AST 테스트 추가, 동작 변화 없음 (29행 동일) |
 
 각 단계마다 6개 실험 config를 임시 저장소에 다시 돌려, 커밋된 기록과 29개 결과 행(상태·실패 분류·판정)이
-같음을 확인했다. 테스트는 26개에서 75개로 늘었다.
+같음을 확인했다. 테스트는 26개에서 75개로, 7단계 후 85개로 늘었다.
 
 ---
 
@@ -91,11 +92,11 @@
 
 #### #4 [중간] 공통 계층에 벤더 지식 잔존 — ❌
 
-* 공통 `aot.py`에 Hexagon 타깃 정의와 "LLVM 18 Hexagon이 `fmaximum`을 선택하지 못함" 우회가 있다.
+* 공통 `toolchain/aot.py`에 Hexagon 타깃 정의와 "LLVM 18 Hexagon이 `fmaximum`을 선택하지 못함" 우회가 있다.
 * `services/aot_report.py`와 `importers/pipeline.py`에 backend ID가 하드코딩되어 있다.
 * CLI `smoke`의 기본 backend가 `hexagon-mlir`이다.
 * 이름 검사 테스트는 일부 공통 모듈만 대상이라 이를 잡지 못한다.
-* **권고**: 타깃별 지식(triple·cpu·우회)은 해당 backend로 옮기고 `aot.py`는 "LLVM IR → llc"만 남긴다.
+* **권고**: 타깃별 지식(triple·cpu·우회)은 해당 backend로 옮기고 `toolchain/aot.py`는 "LLVM IR → llc"만 남긴다.
   보고서·seed 생성은 traits로 대상 backend를 고른다.
 
 #### #5 [중간] Workload 인터페이스 불일치 — ❌
@@ -112,7 +113,7 @@
 
 #### #7 [중간] 계약·정책이 코드에 박혀 있음 — ❌
 
-* 정확성 계약이 `contract.py`의 `CONTRACTS` dict다. calibration 후 새 contract id를 만드는 운영 절차가 코드 수정이 된다.
+* 정확성 계약이 `core/contract.py`의 `CONTRACTS` dict다. calibration 후 새 contract id를 만드는 운영 절차가 코드 수정이 된다.
 * **권고**: contract를 버전 붙은 데이터 파일(`contracts/*.json`)로 옮기고 기록에 파일 hash를 남긴다.
 
 #### #8 [중간] registry 장애 격리·discovery 부작용 — ❌

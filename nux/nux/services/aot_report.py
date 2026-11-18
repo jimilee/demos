@@ -10,8 +10,9 @@ from pathlib import Path
 
 import torch
 
-from .. import aot, frontend, registry
-from .. import contract as C
+from ..core import contract as C
+from ..engine import registry
+from ..toolchain import aot, frontend
 from ..workloads import get
 from . import REPORTS, rel, write_json
 

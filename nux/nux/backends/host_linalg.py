@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import torch
 
-from .. import frontend, transforms
-from .. import mlir_host as H
-from ..adapters import AdapterBundle, Artifact, CompilerAdapter, CompileFailure, RuntimeAdapter, Unsupported
-from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
-from ..profilers import HostWallClockProfiler
-from ..registry import register
+from ..core.adapters import AdapterBundle, Artifact, CompileFailure, CompilerAdapter, RuntimeAdapter, Unsupported
+from ..core.capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
+from ..engine.registry import register
+from ..toolchain import frontend, transforms
+from ..toolchain import mlir_host as H
+from ..toolchain.profilers import HostWallClockProfiler
 
 BACKEND_ID = "host-linalg-jit"
 

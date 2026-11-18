@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import contract as C
-from .. import onnx_export as O
+from ..core import contract as C
 from ..importers import pipeline
+from ..toolchain import onnx_export as O
 from ..workloads import get
 from . import REPORTS, ROOT, rel, write_json
 

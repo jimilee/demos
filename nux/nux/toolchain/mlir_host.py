@@ -176,8 +176,12 @@ class HostJIT:
         raise KeyError(name)
 
     def __call__(self, *arrays):
-        from torch_mlir.runtime import (as_ctype, get_ranked_memref_descriptor, make_nd_memref_descriptor,
-                                        ranked_memref_to_numpy)
+        from torch_mlir.runtime import (
+            as_ctype,
+            get_ranked_memref_descriptor,
+            make_nd_memref_descriptor,
+            ranked_memref_to_numpy,
+        )
 
         res = make_nd_memref_descriptor(len(self.out_shape), as_ctype(self.out_dtype))()
         keep = [np.ascontiguousarray(a) for a in arrays]

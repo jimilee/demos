@@ -20,12 +20,20 @@ import platform
 
 import torch
 
-from .. import aot, frontend, transforms
-from .. import mlir_host as H
-from ..adapters import AdapterBundle, Artifact, CompilerAdapter, CompileFailure, DeviceUnavailable, RuntimeAdapter, Unsupported
-from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
-from ..profilers import HostWallClockProfiler, NoProfiler
-from ..registry import register
+from ..core.adapters import (
+    AdapterBundle,
+    Artifact,
+    CompileFailure,
+    CompilerAdapter,
+    DeviceUnavailable,
+    RuntimeAdapter,
+    Unsupported,
+)
+from ..core.capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
+from ..engine.registry import register
+from ..toolchain import aot, frontend, transforms
+from ..toolchain import mlir_host as H
+from ..toolchain.profilers import HostWallClockProfiler, NoProfiler
 
 
 def _apply(parent_mod, candidate, cfg):

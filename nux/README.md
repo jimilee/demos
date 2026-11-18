@@ -39,39 +39,47 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   │   ├── vendor.py                  # export_onnx, import_profile
 │   │   └── cache.py                   # artifact store 열기, 작업 디렉토리 정리
 │   │
-│   │   ── 공통 계층 (벤더 이름 금지: tests/test_core.py가 검사) ──
-│   ├── schema.py                      # Candidate, Measurement, CandidateRecord, 상태 사다리(State), 실패 분류(Failure)
-│   ├── capability.py                  # CapabilityManifest, ActionSpec(support × validation), validate_action
-│   ├── adapters.py                    # CompilerAdapter / RuntimeAdapter / ProfilerAdapter / AdapterBundle / Artifact
-│   ├── registry.py                    # BackendRegistry: backend_id → bundle, profile 호환성 검사
-│   ├── controller.py                  # pipeline 실행, 후보당 기록 1회, best 갱신·복원, 예산 (128줄)
-│   ├── stages.py                      # 후보 평가 단계 함수들 + CandidateContext (증거 사다리 순서)
-│   ├── measurement.py                 # 측정 프로토콜: PairedProtocol(ABBA), SingleProtocol
-│   ├── evaluator.py                   # 정확성 검사, 측정 적격성, 채택 판정 (읽기 전용 규칙)
-│   ├── stats.py                       # paired block 통계, bootstrap CI, Policy(3% / CI>1.0 / p95 2%)
-│   ├── contract.py                    # 정확성 계약 (deit-tiny-fp32-logits-v0, toy-fp32-v0)
-│   ├── config.py                      # 실험 config 엄격 검증 (모르는 key·잘못된 ID·후보 형식 오류는 로드 시 거부, `_` key는 주석)
-│   ├── store.py                       # 불변 기록, backend별 best 격리, results.tsv
-│   ├── artifact_store.py              # content-addressed 산출물 저장소 + 보존 정책 (pin, 기각 삭제, intermediate 삭제, LRU 5 GB)
-│   ├── frontend.py                    # 공유 front end: workload → 검증된 linalg IR (프로세스 캐시). backend는 여기서만 baseline IR을 얻는다
-│   ├── transforms.py                  # 공유 IR recipe 적용·검증 (오류 계약: Unsupported / CompileFailure), recipe capability 생성
-│   ├── profilers.py                   # 재사용 profiler (HostWallClockProfiler, NoProfiler)
-│   ├── mlir_host.py                   # 저수준 MLIR 도구: export, verifier, recipe 정의, host LLVM JIT, reshape reproducer
-│   ├── aot.py                         # AOT: MLIR LLVM .o/.so, LLVM IR downgrade, max/min 확장, llc (x86-64 / Hexagon), ctypes
-│   ├── corpus.py                      # 수치·회귀 corpus 생성기 (tune / holdout / stress)
-│   ├── hints.py                       # 벤더 중립 Hint, 프로파일 표 분석, tag 기반 seed 후보 생성
-│   ├── onnx_export.py                 # 벤더 SDK 입력용 ONNX export + onnxruntime 검증
+│   │   ── 공통 계층: 아래 4개 패키지 (벤더 이름 금지: tests/test_core.py, 의존 방향: tests/test_architecture.py) ──
+│   ├── core/                          # [계층 0] 공통 어휘. nux 내부의 다른 계층을 import하지 않음
+│   │   ├── schema.py                  # Candidate, Measurement, CandidateRecord, 상태 사다리(State), 실패 분류(Failure)
+│   │   ├── capability.py              # CapabilityManifest, ActionSpec(support × validation), validate_action
+│   │   ├── adapters.py                # CompilerAdapter / RuntimeAdapter / ProfilerAdapter / AdapterBundle / Artifact
+│   │   ├── contract.py                # 정확성 계약 (deit-tiny-fp32-logits-v0, toy-fp32-v0)
+│   │   └── stats.py                   # paired block 통계, bootstrap CI, Policy(3% / CI>1.0 / p95 2%)
 │   │
+│   ├── storage/                       # [계층 1] 영속화 (core만 의존)
+│   │   ├── store.py                   # 불변 기록, backend별 best 격리, results.tsv
+│   │   └── artifact_store.py          # content-addressed 산출물 저장소 + 보존 정책 (pin, 기각 삭제, intermediate 삭제, LRU 5 GB)
+│   │
+│   ├── toolchain/                     # [계층 1] backend가 공유하는 타깃 중립 컴파일 부품 (core만 의존)
+│   │   ├── mlir_host.py               # 저수준 MLIR 도구: export, verifier, recipe 정의, host LLVM JIT, reshape reproducer
+│   │   ├── frontend.py                # 공유 front end: workload → 검증된 linalg IR (프로세스 캐시). backend는 여기서만 baseline IR을 얻는다
+│   │   ├── transforms.py              # 공유 IR recipe 적용·검증 (오류 계약: Unsupported / CompileFailure), recipe capability 생성
+│   │   ├── aot.py                     # AOT: MLIR LLVM .o/.so, LLVM IR downgrade, max/min 확장, llc (x86-64 / Hexagon), ctypes
+│   │   ├── profilers.py               # 재사용 profiler (HostWallClockProfiler, NoProfiler)
+│   │   └── onnx_export.py             # 벤더 SDK 입력용 ONNX export + onnxruntime 검증
+│   │
+│   ├── engine/                        # [계층 2] 실험 루프 (core·storage·toolchain 의존, backend는 registry로만)
+│   │   ├── registry.py                # BackendRegistry: backend_id → bundle, profile 호환성 검사
+│   │   ├── config.py                  # 실험 config 엄격 검증 (모르는 key·잘못된 ID·후보 형식 오류는 로드 시 거부, `_` key는 주석)
+│   │   ├── measurement.py             # 측정 프로토콜: PairedProtocol(ABBA), SingleProtocol
+│   │   ├── evaluator.py               # 정확성 검사, 측정 적격성, 채택 판정 (읽기 전용 규칙)
+│   │   ├── stages.py                  # 후보 평가 단계 함수들 + CandidateContext (증거 사다리 순서)
+│   │   └── controller.py              # pipeline 실행, 후보당 기록 1회, best 갱신·복원, 예산
+│   │
+│   │   ── 플러그인 (registry에 등록) ──
 │   ├── importers/                     # 벤더 프로파일 importer (별도 모듈, 공식 도구 출력만 읽음)
 │   │   ├── __init__.py                # importer registry, 정규화된 VendorProfile
 │   │   ├── qnn_json.py                # qnn-profile-viewer + libQnnJsonProfilingReader 출력
 │   │   ├── chrometrace.py             # Chrome Trace JSON (AppBuilder 변환 결과 등)
 │   │   ├── onnx_map.py                # 벤더 op 이름 → 원본 ONNX op 타입 매핑
+│   │   ├── hints.py                   # 벤더 중립 Hint, 프로파일 표 분석, tag 기반 seed 후보 생성
 │   │   └── pipeline.py                # 프로파일 → hint → backend별 seed config
 │   │
 │   ├── workloads/                     # Workload registry
 │   │   ├── __init__.py                # register / get / Workload 인터페이스
 │   │   ├── deit.py                    # DeiT-tiny: 고정 revision·sha256, strict load, PIL 전처리, sub-workload
+│   │   ├── corpus.py                  # 수치·회귀 corpus 생성기 (tune / holdout / stress)
 │   │   └── toy.py                     # 테스트용 LayerNorm→Linear→GELU
 │   │
 │   └── backends/                      # 벤더별 adapter bundle (벤더 코드는 여기에만)
@@ -140,21 +148,27 @@ flowchart TB
 
     subgraph VREF["벤더 레퍼런스 (선택)"]
         IMP["importers/<br/>QNN JSON · Chrome Trace · ONNX 이름 매핑"]
-        HN["hints.py<br/>hint 추출 · tag 기반 seed"]
-        OX["onnx_export.py<br/>벤더 입력 ONNX + 검증"]
+        HN["importers/hints.py<br/>hint 추출 · tag 기반 seed"]
+        OX["toolchain/onnx_export.py<br/>벤더 입력 ONNX + 검증"]
     end
 
-    subgraph COMMON["공통 계층 — 벤더 중립"]
-        CFG["configs/*.json<br/>backend_id · profiles · workload · contract · artifact_cache"]
+    CFG["configs/*.json<br/>backend_id · profiles · workload · contract · artifact_cache"]
+    WL["workloads/<br/>DeiT-tiny · corpus · reference"]
+
+    subgraph ENGINE["engine/ — 계층 2: 실험 루프"]
         CTL["controller.py<br/>pipeline 실행 · 기록 1회 · best 갱신/복원 · 예산"]
         STG["stages.py<br/>CandidateContext · 단계 함수 10개"]
-        CAP["capability.py<br/>traits · validate_action"]
         MEAS["measurement.py<br/>PairedProtocol(ABBA) · Single"]
-        EVA["evaluator.py + stats.py<br/>정확성 · 적격성 · paired bootstrap"]
-        CON["contract.py<br/>허용 오차 (버전)"]
+        EVA["evaluator.py<br/>정확성 · 적격성 · 채택 판정"]
+        REG["registry.py · config.py<br/>BackendRegistry · 엄격 config"]
+    end
+
+    subgraph STORAGE["storage/ — 계층 1"]
         STO["store.py<br/>불변 기록 · backend별 best"]
         ART["artifact_store.py<br/>content-addressed · pin · LRU 5 GB"]
-        WL["workloads/<br/>DeiT-tiny · corpus · reference"]
+    end
+
+    subgraph TOOL["toolchain/ — 계층 1: 공유 컴파일 부품"]
         FE["frontend.py<br/>workload → 검증된 linalg IR"]
         TR["transforms.py<br/>IR recipe 적용 · 오류 계약"]
         PR["profilers.py<br/>host wall-clock · none"]
@@ -162,7 +176,12 @@ flowchart TB
         AOTM["aot.py<br/>downgrade · max/min 확장 · llc"]
     end
 
-    REG["registry.py<br/>BackendRegistry"]
+    subgraph CORE["core/ — 계층 0: 공통 어휘"]
+        CAP["capability.py<br/>traits · validate_action"]
+        CON["contract.py · stats.py<br/>허용 오차 · paired bootstrap"]
+        SCH["schema.py · adapters.py<br/>기록 · 상태 · adapter 인터페이스"]
+    end
+
 
     subgraph BACKENDS["backends/ — adapter bundle (Compiler · Runtime · Profiler · Capability)"]
         HEX["hexagon-mlir<br/>exec=device · codegen<br/>E2E: unavailable"]
@@ -180,6 +199,7 @@ flowchart TB
     SVC --> REG
     CTL --> STG
     STG --> CAP
+    STG --> SCH
     STG --> MEAS
     STG --> EVA
     EVA --> CON
@@ -201,15 +221,16 @@ flowchart TB
     HEX -->|"translate_linalg_to_obj<br/>run_torch_mlir"| SDK["Hexagon-MLIR toolchain<br/>+ Snapdragon cDSP"]
 ```
 
-화살표는 호출·의존 방향이다. backend끼리는 서로 의존하지 않고, 공통 계층은 backend를 import하지 않는다
-(registry의 동적 로딩만 예외, `tests/test_architecture.py`가 검사).
+화살표는 호출·의존 방향이다. 공통 계층의 의존은 `engine → storage·toolchain → core` 한 방향이며
+(`tests/test_architecture.py::test_layer_dependency_direction`), backend끼리는 서로 의존하지 않고, 공통 계층은
+backend를 import하지 않는다 (registry의 동적 로딩만 예외).
 
 ### 1.3 후보 하나의 실험 흐름
 
-아래 흐름은 `nux/stages.py`의 단계 함수 순서와 일치한다:
+아래 흐름은 `nux/engine/stages.py`의 단계 함수 순서와 일치한다:
 `capability → compile_ → ir_verify → dedupe → pending → target_compiled → twin_correctness → session → correctness → measure`.
 각 단계는 `CandidateContext`만 읽고 쓰며, `ctx.stop(...)`으로 pipeline을 끝낸다. controller는 끝난 context에서
-기록을 **정확히 한 번** 쓴다. 측정 순서와 warm-up은 `nux/measurement.py`의 프로토콜이 정한다
+기록을 **정확히 한 번** 쓴다. 측정 순서와 warm-up은 `nux/engine/measurement.py`의 프로토콜이 정한다
 (ABBA: 짝 i가 짝수면 base→cand, 홀수면 cand→base, session별 warm-up은 첫 블록 전 1회).
 
 ```mermaid
@@ -299,7 +320,7 @@ flowchart LR
 
 ### 1.6 등록된 backend
 
-backend의 성격은 하나의 `kind`가 아니라 **서로 독립인 세 속성**으로 선언한다 (`nux/capability.py`).
+backend의 성격은 하나의 `kind`가 아니라 **서로 독립인 세 속성**으로 선언한다 (`nux/core/capability.py`).
 
 | 속성 | 값 | 뜻 |
 |---|---|---|
@@ -327,8 +348,10 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 
 **의존 방향 규칙** (`tests/test_architecture.py`가 AST로 검사):
 * backend는 다른 backend를 import하지 않는다. 공유가 필요한 것은 공통 모듈로 올린다:
-  `frontend.py`(baseline IR), `transforms.py`(IR recipe), `profilers.py`(측정기).
+  `toolchain/frontend.py`(baseline IR), `toolchain/transforms.py`(IR recipe), `toolchain/profilers.py`(측정기).
 * 공통 모듈은 `backends`와 `importers`를 import하지 않는다 (registry의 동적 로딩만 예외).
+* 공통 계층 패키지는 `core` ← `storage`·`toolchain` ← `engine` 방향으로만 의존한다 (lazy import 포함).
+  `nux/` 바로 아래에는 `__init__.py`와 `__main__.py`만 둔다.
 * IR recipe 적용은 `transforms.apply_ir_recipe` 하나뿐이다. 전제조건 불충족은 `Unsupported`, pass·verifier 실패는
   `CompileFailure`로 일관되게 기록된다.
 
@@ -349,7 +372,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 
 ### 1.6.1 config와 기록 검증
 
-* `python -m nux run`은 `nux/config.py`로 config를 **엄격하게** 읽는다. 모르는 key, 등록되지 않은 backend·workload·contract ID,
+* `python -m nux run`은 `nux/engine/config.py`로 config를 **엄격하게** 읽는다. 모르는 key, 등록되지 않은 backend·workload·contract ID,
   잘못된 타입, 형식이 틀린 후보 항목, `correctness_splits`에 holdout을 넣은 경우(최종 재검증 전용)는 실행 전에 오류다.
   `_`로 시작하는 key는 주석으로 그대로 보존한다. 쓰이지 않던 `device_profile` key는 config에서 제거했다.
 * 기록은 쓰기 직전에 `schema.validate_record`로 검증한다. 다음은 모두 버그로 보고 기록하지 않는다.
@@ -389,7 +412,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
 | 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
-| 테스트 | `python -m pytest -q tests` | 75 passed |
+| 테스트 | `python -m pytest -q tests` | 85 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 
@@ -401,7 +424,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
   아직 **재현하지 못했다**. Hexagon 파이프라인(DropUnitDims 등)에 이 IR을 넣어 재현을 시도하는 것이
   toolchain이 생기면 첫 작업이다.
 
-## 2.4 산출물 저장소와 보존 정책 (`nux/artifact_store.py`)
+## 2.4 산출물 저장소와 보존 정책 (`nux/storage/artifact_store.py`)
 
 컴파일 산출물을 **컴파일 입력으로 만든 key**로 저장해 재사용한다. key 구성 요소는 다음과 같다.
 
@@ -448,7 +471,7 @@ best 복원에는 twin이 필요 없다.
 
 ## 2.5 AOT 컴파일
 
-JIT(ExecutionEngine) 외에 **AOT 경로 두 가지**를 구현했다 (`nux/aot.py`, `nux/backends/llvm_aot.py`).
+JIT(ExecutionEngine) 외에 **AOT 경로 두 가지**를 구현했다 (`nux/toolchain/aot.py`, `nux/backends/llvm_aot.py`).
 
 | 경로 | 과정 | 산출물 | 실행 |
 |---|---|---|---|

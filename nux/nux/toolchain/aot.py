@@ -244,8 +244,12 @@ class AOTLibrary:
         self.out_dtype = {"f32": np.float32, "f64": np.float64}[m.group(2)]
 
     def __call__(self, *arrays):
-        from torch_mlir.runtime import (as_ctype, get_ranked_memref_descriptor, make_nd_memref_descriptor,
-                                        ranked_memref_to_numpy)
+        from torch_mlir.runtime import (
+            as_ctype,
+            get_ranked_memref_descriptor,
+            make_nd_memref_descriptor,
+            ranked_memref_to_numpy,
+        )
 
         res = make_nd_memref_descriptor(len(self.out_shape), as_ctype(self.out_dtype))()
         keep = [np.ascontiguousarray(a) for a in arrays]
@@ -276,7 +280,7 @@ def code_fingerprint() -> dict:
 def workdir_base() -> Path:
     if os.environ.get("NUX_AOT_WORKDIR"):
         return Path(os.environ["NUX_AOT_WORKDIR"])
-    return Path(os.environ.get("NUX_CACHE", Path(__file__).resolve().parents[1] / ".cache")) / "aot"
+    return Path(os.environ.get("NUX_CACHE", Path(__file__).resolve().parents[2] / ".cache")) / "aot"
 
 
 def cleanup_workdirs(paths) -> int:

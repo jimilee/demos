@@ -37,7 +37,7 @@ def export(workload, out: Path, opset=18) -> dict:
 def validate(workload, onnx_path: Path, contract, corpus, splits=("tune", "stress"), limit=None) -> dict:
     import onnxruntime as ort
 
-    from . import contract as C
+    from ..core import contract as C
 
     sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
     name = sess.get_inputs()[0].name

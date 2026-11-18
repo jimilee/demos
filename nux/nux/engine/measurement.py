@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from .stats import Policy
+from ..core.stats import Policy
 
 
 class PairedProtocol:

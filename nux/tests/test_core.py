@@ -6,12 +6,13 @@ from pathlib import Path
 import pytest
 import torch
 
-from nux import contract as C
-from nux import evaluator, stats
 from nux.backends import mock
-from nux.capability import validate_action
-from nux.schema import Candidate, CandidateRecord, Measurement
-from nux.store import Store
+from nux.core import contract as C
+from nux.core import stats
+from nux.core.capability import validate_action
+from nux.core.schema import Candidate, CandidateRecord, Measurement
+from nux.engine import evaluator
+from nux.storage.store import Store
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -64,7 +65,7 @@ def test_stats_decide():
 
 
 def _manifest(executes_on, tier, e2e="supported"):
-    from nux.capability import CapabilityManifest, ExecutionCaps, MeasurementCaps
+    from nux.core.capability import CapabilityManifest, ExecutionCaps, MeasurementCaps
 
     return CapabilityManifest("t", "1", "c", "r", "p", [], ["float32"], [], MeasurementCaps(e2e=e2e, tier=tier),
                               ExecutionCaps(executes_on=executes_on))
@@ -87,7 +88,7 @@ def test_evaluator_never_accepts_non_device_evidence():
 
 
 def test_capability_values_validated_without_assert():
-    from nux.capability import ActionSpec, ExecutionCaps, MeasurementCaps
+    from nux.core.capability import ActionSpec, ExecutionCaps, MeasurementCaps
 
     for bad in (lambda: ExecutionCaps(executes_on="cloud"), lambda: MeasurementCaps(tier="guess"),
                 lambda: ActionSpec("x", "config", "d", "s", tags=["speed"])):
@@ -123,7 +124,9 @@ def test_store_records_are_immutable(tmp_path):
     assert s.get_best(Store.best_key("b1", "w", "c")) == {"x": 1}
 
 
-COMMON = ["controller", "evaluator", "stats", "store", "capability", "schema", "registry", "adapters", "contract"]
+COMMON = ["engine/controller", "engine/stages", "engine/evaluator", "engine/measurement", "engine/registry",
+          "core/stats", "core/capability", "core/schema", "core/adapters", "core/contract", "storage/store",
+          "storage/artifact_store"]
 
 
 def test_no_vendor_branching_in_common_layers():
@@ -143,7 +146,7 @@ def test_same_config_twice_in_one_second_does_not_collide(tmp_path):
 
 
 def test_config_is_strict():
-    from nux.config import ConfigError, parse
+    from nux.engine.config import ConfigError, parse
 
     base = {"backend_id": "mock-mlir", "workload_id": "toy-mlp", "evaluation_contract_id": "toy-fp32-v0"}
     assert parse({**base, "_note": "comments are allowed"}).comments == {"_note": "comments are allowed"}
@@ -155,7 +158,7 @@ def test_config_is_strict():
 
 
 def test_record_validation_blocks_inconsistent_records(tmp_path):
-    from nux.schema import RecordError
+    from nux.core.schema import RecordError
 
     s = Store(tmp_path)
     eid = s.new_experiment({}, {})

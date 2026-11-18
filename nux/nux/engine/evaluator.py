@@ -9,8 +9,8 @@ Hard rules (plan §2, §9, §14):
 """
 from __future__ import annotations
 
-from . import contract as C
-from . import stats
+from ..core import contract as C
+from ..core import stats
 
 
 def check_correctness(run_fn, workload, contract: C.Contract, corpus, splits=("tune", "stress")):

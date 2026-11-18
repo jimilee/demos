@@ -9,8 +9,8 @@ from __future__ import annotations
 import time
 from importlib.metadata import PackageNotFoundError, version
 
+from ..core.adapters import CompileFailure
 from . import mlir_host as H
-from .adapters import CompileFailure
 
 _CACHE: dict = {}
 

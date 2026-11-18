@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from nux import hints as Hn
-from nux import importers, registry
+from nux import importers
+from nux.engine import registry
+from nux.importers import hints as Hn
 from nux.importers import pipeline
 from nux.importers.onnx_map import name_to_type
 

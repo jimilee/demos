@@ -8,7 +8,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .schema import dump, validate_record
+from ..core.schema import dump, validate_record
 
 TSV_COLUMNS = ["experiment_id", "candidate_id", "created_at", "backend_id", "backend_traits", "workload_id",
                "contract_id", "action_id", "kind", "params", "hypothesis", "state", "failure", "failure_detail",

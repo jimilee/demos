@@ -2,6 +2,8 @@
 
 Vendor-neutral NPU auto-optimization layer (plan: `mobile_compiler_autokernel_plan_v0_3.md`, preparation stage A0–A4).
 Read `README.md` §1 (structure, diagrams) before changing code.
+Package layers: `core` (0) ← `storage`, `toolchain` (1) ← `engine` (2); plugins `backends/`, `workloads/`,
+`importers/`; `services/` and the CLI on top. `tests/test_architecture.py` enforces the import direction.
 Architecture reviews and the refactoring backlog (status per item, priorities): `docs/architecture_review.md`.
 
 ## Environment
@@ -9,7 +11,7 @@ Architecture reviews and the refactoring backlog (status per item, priorities): 
 - Python venv: `../.venv-npu` (`. ../.venv-npu/bin/activate`). torch 2.15 (PyPI), torch-mlir 20261101 (PyPI), transformers 5.23.
 - `export HF_HUB_DISABLE_XET=1` before anything that downloads DeiT weights (classic LFS path).
 - No Snapdragon device, no Hexagon SDK, no Hexagon-MLIR build in the cloud environment. System `llc` 18 has the Hexagon target (max hexagonv73).
-- Tests: `python -m pytest -q tests -p no:logging` (75 passed at commit 6bdd744). Tests set `NUX_AOT_WORKDIR` to a temp dir.
+- Tests: `python -m pytest -q tests -p no:logging` (85 passed after the layer re-organization). Tests set `NUX_AOT_WORKDIR` to a temp dir.
 - Committed experiment stores (`store/`, `store_mock/`) are results: re-running a config APPENDS to them. For behavior checks, copy a config, set `"store": ".cache/verify_store"`, and compare `results.tsv` rows (state, failure, decision).
 
 ## Mock backends — caveats (read before using or changing them)
@@ -44,8 +46,8 @@ failure classes, best restore, per-backend isolation) against two backend shapes
    `frontend_version()`. Add regression tests reproducing both scenarios.
 
 Other open items: backend conformance suite (refactor step 5) not written; vendor knowledge still in common
-`aot.py`; backend ids hard-coded in `services/aot_report.py` and `importers/pipeline.py`; `Workload` base class lacks
-`submodules()`/`preprocess()` that services call; contracts are a Python dict in `contract.py`.
+`toolchain/aot.py`; backend ids hard-coded in `services/aot_report.py` and `importers/pipeline.py`; `Workload` base class lacks
+`submodules()`/`preprocess()` that services call; contracts are a Python dict in `core/contract.py`.
 
 ## Rules for this project
 

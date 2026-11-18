@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import time
 
-from ..corpus import GENERATOR_VERSION
 from ..workloads import get
+from ..workloads.corpus import GENERATOR_VERSION
 from . import ROOT, write_json
 
 

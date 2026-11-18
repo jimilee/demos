@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import time
 
-from .. import contract as C
-from .. import mlir_host as H
+from ..core import contract as C
+from ..toolchain import mlir_host as H
 from ..workloads import get
 from . import REPORTS, ROOT, write_json
 

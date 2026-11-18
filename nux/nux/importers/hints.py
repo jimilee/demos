@@ -14,8 +14,8 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 
-from .capability import validate_action
-from .schema import Candidate
+from ..core.capability import validate_action
+from ..core.schema import Candidate
 
 CATEGORY_TAGS = {
     "hotspot": ["kernel", "tiling", "threading", "library_matmul", "vector"],

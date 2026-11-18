@@ -8,7 +8,7 @@ from __future__ import annotations
 import importlib
 import pkgutil
 
-from . import SCHEMA_VERSION
+from .. import SCHEMA_VERSION
 
 _FACTORIES: dict = {}
 _LOADED = False
@@ -29,7 +29,7 @@ def _load_all():
     global _LOADED
     if _LOADED:
         return
-    from . import backends
+    from .. import backends
 
     for m in pkgutil.iter_modules(backends.__path__):
         importlib.import_module(f"{backends.__name__}.{m.name}")

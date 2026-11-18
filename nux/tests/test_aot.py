@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 import torch
 
-from nux import aot
-from nux import mlir_host as H
+from nux.toolchain import aot
+from nux.toolchain import mlir_host as H
 from nux.workloads import get
 
 needs_llc = pytest.mark.skipif(not aot.llc_path(), reason="llc not installed")
@@ -70,9 +70,10 @@ def test_host_aot_matches_reference():
 def test_hexagon_object_and_twin(tmp_path):
     if "hexagon" not in aot.llc_targets():
         pytest.skip("llc without hexagon target")
-    from nux import contract, registry, stats
-    from nux.controller import Controller
-    from nux.store import Store
+    from nux.core import contract, stats
+    from nux.engine import registry
+    from nux.engine.controller import Controller
+    from nux.storage.store import Store
 
     b = registry.resolve({"backend_id": "llvm-aot-hexagon"})
     c = Controller(b, get("toy-mlp"), contract.get("toy-fp32-v0"), Store(tmp_path), stats.Policy(), {"backend_id": "x"})

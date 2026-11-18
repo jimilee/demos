@@ -6,9 +6,9 @@ Error contract (relied on by the controller):
 """
 from __future__ import annotations
 
+from ..core.adapters import CompileFailure, Unsupported
+from ..core.capability import ActionSpec
 from . import mlir_host as H
-from .adapters import CompileFailure, Unsupported
-from .capability import ActionSpec
 
 RECIPE_PREFIX = "recipe."
 

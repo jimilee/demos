@@ -4,8 +4,8 @@ from __future__ import annotations
 import statistics
 import time
 
-from .adapters import ProfilerAdapter, Unsupported
-from .schema import Measurement
+from ..core.adapters import ProfilerAdapter, Unsupported
+from ..core.schema import Measurement
 
 
 class HostWallClockProfiler(ProfilerAdapter):

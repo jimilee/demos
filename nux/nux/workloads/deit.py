@@ -169,7 +169,7 @@ class DeiTTiny(Workload):
         return self.processor()(images=pil_image, return_tensors="pt")["pixel_values"].float()
 
     def corpus(self):
-        from ..corpus import build_image_corpus
+        from .corpus import build_image_corpus
 
         return build_image_corpus(self)
 

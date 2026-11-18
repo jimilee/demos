@@ -8,7 +8,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from . import SCHEMA_VERSION
+from .. import SCHEMA_VERSION
 
 
 class State(str, enum.Enum):

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import shutil
 
-from .. import aot
-from ..artifact_store import ArtifactPolicy, ArtifactStore
+from ..storage.artifact_store import ArtifactPolicy, ArtifactStore
+from ..toolchain import aot
 from . import ROOT
 
 

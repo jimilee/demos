@@ -27,12 +27,21 @@ from pathlib import Path
 
 import torch
 
-from .. import frontend, transforms
-from .. import mlir_host as H
-from ..adapters import (AdapterBundle, Artifact, CompilerAdapter, CompileFailure, DeviceUnavailable, ProfilerAdapter,
-                        RuntimeAdapter, RuntimeFailure, Unsupported)
-from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
-from ..registry import register
+from ..core.adapters import (
+    AdapterBundle,
+    Artifact,
+    CompileFailure,
+    CompilerAdapter,
+    DeviceUnavailable,
+    ProfilerAdapter,
+    RuntimeAdapter,
+    RuntimeFailure,
+    Unsupported,
+)
+from ..core.capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
+from ..engine.registry import register
+from ..toolchain import frontend, transforms
+from ..toolchain import mlir_host as H
 
 BACKEND_ID = "hexagon-mlir"
 SOURCE_REV = "9ec15e8"
@@ -174,7 +183,8 @@ class Compiler(CompilerAdapter):
         if why:  # the vendor-neutral input IR is still real evidence; target stages stay pending
             return Artifact(BACKEND_ID, "ir", payload=mod, ir_hashes={mod.stage: mod.sha256}, provenance=prov,
                             requested_config=requested, effective_config=dict(cfg), pending=why)
-        from triton._C.libtriton import ir as tir, qcom_hexagon_backend as qhb  # noqa: F401
+        from triton._C.libtriton import ir as tir  # noqa: F401
+        from triton._C.libtriton import qcom_hexagon_backend as qhb
         from triton.backends.qcom_hexagon_backend.torch_mlir_hexagon_launcher import TorchMLIRHexagonLauncher
 
         work = Path(tempfile.mkdtemp(prefix="nux_hex_"))

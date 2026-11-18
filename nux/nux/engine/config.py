@@ -11,9 +11,9 @@ import json
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
-from .artifact_store import ArtifactPolicy
-from .schema import Candidate
-from .stats import Policy
+from ..core.schema import Candidate
+from ..core.stats import Policy
+from ..storage.artifact_store import ArtifactPolicy
 
 SPLITS = ("tune", "holdout", "stress")
 
@@ -113,7 +113,9 @@ def parse(d: dict, source: str = "config", check_ids: bool = True) -> Experiment
         if k in d:
             _typed(f"{source}.{k}", d[k], str)
     if check_ids:
-        from . import contract, registry, workloads
+        from .. import workloads
+        from ..core import contract
+        from . import registry
 
         if d["backend_id"] not in registry.available():
             raise ConfigError(f"{source}.backend_id: '{d['backend_id']}' not registered; known: {registry.available()}")

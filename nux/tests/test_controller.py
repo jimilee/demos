@@ -4,12 +4,13 @@ import random
 
 import pytest
 
-from nux import contract, registry, stats
-from nux.adapters import AdapterBundle
 from nux.backends import mock
-from nux.controller import Controller
-from nux.schema import Candidate, Measurement
-from nux.store import Store
+from nux.core import contract, stats
+from nux.core.adapters import AdapterBundle
+from nux.core.schema import Candidate, Measurement
+from nux.engine import registry
+from nux.engine.controller import Controller
+from nux.storage.store import Store
 from nux.workloads import get
 
 POL = stats.Policy(warmup=1, pairs=4, requests_per_block=4)
@@ -75,7 +76,7 @@ class _DeviceProfiler(mock.Profiler):
 
 
 def _fixture_bundle():
-    from nux.capability import ExecutionCaps
+    from nux.core.capability import ExecutionCaps
 
     m = mock.mlir_manifest()
     m.execution = ExecutionCaps(target_codegen=False, executes_on="device")

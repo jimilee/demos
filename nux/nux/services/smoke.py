@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import time
 
-from .. import aot
-from .. import mlir_host as H
-from .. import registry
+from ..engine import registry
+from ..toolchain import aot
+from ..toolchain import mlir_host as H
 from ..workloads import get
 from . import REPORTS, write_json
 from .environment import toolchain_lock

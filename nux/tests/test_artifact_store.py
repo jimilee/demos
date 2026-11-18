@@ -3,11 +3,13 @@ import time
 
 import pytest
 
-from nux import aot, contract, registry, stats
-from nux.artifact_store import ArtifactPolicy, ArtifactStore
-from nux.controller import Controller
-from nux.schema import Candidate
-from nux.store import Store
+from nux.core import contract, stats
+from nux.core.schema import Candidate
+from nux.engine import registry
+from nux.engine.controller import Controller
+from nux.storage.artifact_store import ArtifactPolicy, ArtifactStore
+from nux.storage.store import Store
+from nux.toolchain import aot
 from nux.workloads import get
 
 

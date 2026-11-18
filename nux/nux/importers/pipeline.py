@@ -6,7 +6,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from .. import hints as Hn
+from . import hints as Hn
 from . import load
 from .onnx_map import name_to_type, source_graph
 
@@ -65,7 +65,7 @@ def run(fmt, profile_path, label, targets, onnx_path=None, build_config_path=Non
     (out_dir / "profile_normalized.json").write_text(json.dumps({"meta": meta, **prof.to_dict()}, indent=2, default=str))
     Hn.save(hints, out_dir / "hints.json", meta)
     seeds_out = {}
-    from .. import registry
+    from ..engine import registry
 
     for t in targets:
         m = registry.resolve({"backend_id": t}).manifest

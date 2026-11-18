@@ -5,17 +5,27 @@ from pathlib import Path
 import pytest
 import torch
 
-from nux import contract, mlir_host, registry, stats, transforms
-from nux.adapters import CompileFailure, Unsupported
-from nux.controller import Controller
-from nux.schema import Candidate
-from nux.store import Store
+from nux.core import contract, stats
+from nux.core.adapters import CompileFailure, Unsupported
+from nux.core.schema import Candidate
+from nux.engine import registry
+from nux.engine.controller import Controller
+from nux.storage.store import Store
+from nux.toolchain import mlir_host, transforms
 from nux.workloads import get
 
 PKG = Path(__file__).resolve().parents[1] / "nux"
 BACKENDS = sorted(p.stem for p in (PKG / "backends").glob("*.py") if p.stem != "__init__")
-COMMON = ["controller", "evaluator", "stats", "store", "capability", "schema", "adapters", "contract", "hints",
-          "frontend", "transforms", "profilers", "mlir_host", "aot", "corpus", "onnx_export"]
+LAYERS = ["core", "storage", "toolchain", "engine"]
+COMMON = sorted(f"{layer}/{p.stem}" for layer in LAYERS for p in (PKG / layer).glob("*.py") if p.stem != "__init__") \
+    + ["importers/hints", "workloads/corpus"]
+# Allowed nux sub-packages per layer (anything not listed is a violation). Lazy imports count too.
+ALLOWED = {
+    "core": set(),
+    "storage": {"core"},
+    "toolchain": {"core"},
+    "engine": {"core", "storage", "toolchain", "workloads", "backends"},  # backends: registry discovery only
+}
 
 
 def _imports(path):
@@ -40,7 +50,37 @@ def test_backends_do_not_import_each_other(name):
 @pytest.mark.parametrize("name", COMMON)
 def test_common_layers_do_not_import_backends_or_importers(name):
     for imp in _imports(PKG / f"{name}.py"):
+        if name == "engine/registry" and imp == "..backends":
+            continue  # the registry's dynamic backend discovery is the one allowed edge
         assert "backends" not in imp and "importers" not in imp, f"nux/{name}.py imports {imp}"
+
+
+def _layer_targets(layer, path):
+    """nux sub-packages that a module in nux/<layer>/ imports from (package-root names such as SCHEMA_VERSION skipped)."""
+    subpkgs = {p.name for p in PKG.iterdir() if (p / "__init__.py").exists()}
+    for n in ast.walk(ast.parse(path.read_text())):
+        if isinstance(n, ast.ImportFrom) and n.level == 1:
+            yield layer
+        elif isinstance(n, ast.ImportFrom) and n.level == 2:
+            if n.module:
+                yield n.module.split(".")[0]
+            else:
+                yield from (a.name for a in n.names if a.name in subpkgs)
+        elif isinstance(n, ast.ImportFrom) and n.level == 0 and (n.module or "").startswith("nux."):
+            yield n.module.split(".")[1]
+        elif isinstance(n, ast.ImportFrom) and n.level > 2:
+            raise AssertionError(f"{layer}/{path.name}: import reaches above the package")
+
+
+@pytest.mark.parametrize("layer", LAYERS)
+def test_layer_dependency_direction(layer):
+    for path in sorted((PKG / layer).glob("*.py")):
+        for tgt in _layer_targets(layer, path):
+            assert tgt == layer or tgt in ALLOWED[layer], f"{layer}/{path.name} imports layer '{tgt}' (not allowed)"
+
+
+def test_flat_package_has_only_entry_points():
+    assert sorted(p.name for p in PKG.glob("*.py")) == ["__init__.py", "__main__.py"]
 
 
 class _NoMatmul(torch.nn.Module):
@@ -86,7 +126,7 @@ def test_recipe_failure_is_recorded_not_raised(bid, tmp_path, monkeypatch):
 
 # ---- refactor 2/6: stage pipeline and measurement protocol ------------------------------------
 def test_stage_order_follows_evidence_ladder():
-    from nux import stages
+    from nux.engine import stages
 
     assert [s.__name__ for s in stages.STAGES] == [
         "capability", "compile_", "ir_verify", "dedupe", "pending", "target_compiled", "twin_correctness",
@@ -114,8 +154,8 @@ def test_exactly_one_record_per_candidate(tmp_path):
 
 
 def test_paired_protocol_abba_and_single_warmup():
-    from nux.measurement import PairedProtocol
-    from nux.schema import Measurement
+    from nux.core.schema import Measurement
+    from nux.engine.measurement import PairedProtocol
 
     calls = []
 

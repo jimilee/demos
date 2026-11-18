@@ -4,7 +4,7 @@ from __future__ import annotations
 import platform
 from importlib.metadata import PackageNotFoundError, version
 
-from .. import registry
+from ..engine import registry
 from . import REPORTS, write_json
 
 PACKAGES = ("torch", "torch-mlir", "transformers", "huggingface-hub", "numpy", "pillow", "onnx", "onnxruntime")

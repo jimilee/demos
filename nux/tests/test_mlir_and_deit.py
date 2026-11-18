@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from nux import mlir_host as H
+from nux.toolchain import mlir_host as H
 from nux.workloads import get
 
 

@@ -1,7 +1,7 @@
 """Services are callable without the CLI (refactor 6/6)."""
 import json
 
-from nux import registry
+from nux.engine import registry
 from nux.services.environment import toolchain_lock
 from nux.services.experiment import best_states, run_experiment
 
