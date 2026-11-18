@@ -5,6 +5,7 @@ Read `README.md` §1 (structure, diagrams) before changing code.
 Package layers: `core` (0) ← `storage`, `toolchain` (1) ← `engine` (2); plugins `backends/`, `workloads/`,
 `importers/`; `services/` and the CLI on top. `tests/test_architecture.py` enforces the import direction.
 Architecture reviews and the refactoring backlog (status per item, priorities): `docs/architecture_review.md`.
+Proposal (not implemented, awaiting user decisions D1–D5) for making precision a searchable action: `docs/precision_exploration.md`.
 
 ## Environment
 

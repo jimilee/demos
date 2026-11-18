@@ -20,7 +20,8 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 ├── README.md                          # 이 문서
 ├── CLAUDE.md                          # 새 세션용 요약: 환경, mock 주의사항, 미해결 결함, 작업 규칙
 ├── docs/
-│   └── architecture_review.md         # 1·2차 아키텍처 리뷰, 리팩토링 단계·항목별 상태, 권고 순서
+│   ├── architecture_review.md         # 1·2차 아키텍처 리뷰, 리팩토링 단계·항목별 상태, 권고 순서
+│   └── precision_exploration.md       # 설계안(미구현): 정밀도를 탐색 대상으로 만드는 방법과 결정 사항
 ├── program.md                         # 에이전트 지침 (수정 경계·실험 절차·결과 해석)
 ├── requirements.txt                   # host 준비 단계 의존성 (torch, torch-mlir 20261101, transformers ...)
 │
