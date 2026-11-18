@@ -327,7 +327,10 @@ def cmd_run(a):
     from .store import Store
     from .workloads import get
 
-    cfg = json.loads(Path(a.config).read_text())
+    from .config import load as load_config
+
+    xc = load_config(a.config)  # strict: unknown keys, bad ids, bad candidates are errors here
+    cfg = xc.as_runtime_dict()
     w = get(cfg["workload_id"])
     corpus = w.corpus()
     lim = cfg.get("corpus_limit")
@@ -339,10 +342,8 @@ def cmd_run(a):
                 keep.append(x)
         corpus = keep
     b = registry.resolve(cfg)
-    pol = stats.Policy(**cfg.get("policy", {}))
-    ac = cfg.get("artifact_cache", {})
-    artifacts = None if ac.get("enabled", True) is False else ArtifactStore(
-        ROOT / ac.get("root", ".cache/artifacts"), ArtifactPolicy.from_config(ac))
+    pol = xc.policy
+    artifacts = ArtifactStore(ROOT / xc.artifact_cache.root, xc.artifact_cache.policy()) if xc.artifact_cache.enabled else None
     ctl = Controller(b, w, C.get(cfg["evaluation_contract_id"]), Store(ROOT / cfg.get("store", "store")), pol, cfg,
                      corpus=corpus, toolchain_lock=toolchain_lock(), artifacts=artifacts)
     print(f"experiment {ctl.eid}: backend={b.backend_id} traits={b.traits} mode={ctl.mode}")

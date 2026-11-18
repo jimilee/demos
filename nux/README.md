@@ -36,6 +36,7 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   ├── evaluator.py                   # 정확성 검사, 측정 적격성, 채택 판정 (읽기 전용 규칙)
 │   ├── stats.py                       # paired block 통계, bootstrap CI, Policy(3% / CI>1.0 / p95 2%)
 │   ├── contract.py                    # 정확성 계약 (deit-tiny-fp32-logits-v0, toy-fp32-v0)
+│   ├── config.py                      # 실험 config 엄격 검증 (모르는 key·잘못된 ID·후보 형식 오류는 로드 시 거부, `_` key는 주석)
 │   ├── store.py                       # 불변 기록, backend별 best 격리, results.tsv
 │   ├── artifact_store.py              # content-addressed 산출물 저장소 + 보존 정책 (pin, 기각 삭제, intermediate 삭제, LRU 5 GB)
 │   ├── frontend.py                    # 공유 front end: workload → 검증된 linalg IR (프로세스 캐시). backend는 여기서만 baseline IR을 얻는다
@@ -98,7 +99,7 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       └── candidates/<cand>.json     # 후보별 불변 기록 (stage·IR hash·정확성·측정·판정)
 ├── store_mock/                        # A3 mock 실험 기록 (같은 구조)
 │
-├── tests/                             # pytest (61개)
+├── tests/                             # pytest (63개)
 │   ├── conftest.py
 │   ├── test_core.py                   # capability 필터, 통계, 적격성, 계약, 불변 저장, 벤더 분기 금지
 │   ├── test_controller.py             # mock 2종 + host + hexagon 동일 controller, 채택·복원(테스트 전용 device fixture)
@@ -310,6 +311,18 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 * IR recipe 적용은 `transforms.apply_ir_recipe` 하나뿐이다. 전제조건 불충족은 `Unsupported`, pass·verifier 실패는
   `CompileFailure`로 일관되게 기록된다.
 
+### 1.6.1 config와 기록 검증
+
+* `python -m nux run`은 `nux/config.py`로 config를 **엄격하게** 읽는다. 모르는 key, 등록되지 않은 backend·workload·contract ID,
+  잘못된 타입, 형식이 틀린 후보 항목, `correctness_splits`에 holdout을 넣은 경우(최종 재검증 전용)는 실행 전에 오류다.
+  `_`로 시작하는 key는 주석으로 그대로 보존한다. 쓰이지 않던 `device_profile` key는 config에서 제거했다.
+* 기록은 쓰기 직전에 `schema.validate_record`로 검증한다. 다음은 모두 버그로 보고 기록하지 않는다.
+  * schema 버전 불일치
+  * 상태와 실패 분류의 불일치 (rejected ⇔ failure)
+  * 알 수 없는 단계 상태
+  * 측정 형식 오류
+  * acceptance_capable이 아닌 backend의 `accepted`, 또는 device paired 측정 없는 `accepted`
+
 ### 1.7 상태 사다리와 채택 게이트
 
 실패는 `rejected`와 실패 분류(`unsupported`, `compile_failure`, `runtime_failure`,
@@ -340,7 +353,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
 | 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
-| 테스트 | `python -m pytest -q tests` | 61 passed |
+| 테스트 | `python -m pytest -q tests` | 63 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 

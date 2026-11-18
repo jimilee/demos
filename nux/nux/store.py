@@ -8,7 +8,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .schema import dump
+from .schema import dump, validate_record
 
 TSV_COLUMNS = ["experiment_id", "candidate_id", "created_at", "backend_id", "backend_traits", "workload_id",
                "contract_id", "action_id", "kind", "params", "hypothesis", "state", "failure", "failure_detail",
@@ -45,6 +45,7 @@ class Store:
         d = self.exp_dir(rec.experiment_id) / "candidates"
         d.mkdir(parents=True, exist_ok=True)
         p = d / f"{rec.candidate['candidate_id']}.json"
+        validate_record(rec)  # schema errors are bugs: never write an inconsistent record
         if p.exists():
             raise FileExistsError(f"record {p} is immutable")
         p.write_text(rec.to_json())

@@ -157,3 +157,48 @@ def _json_default(o: Any):
 
 def dump(obj) -> str:
     return json.dumps(obj, indent=2, default=_json_default)
+
+
+# ---- record validation (refactor 5/6): records are checked before they are written ----------------
+class RecordError(ValueError):
+    pass
+
+
+_MEAS_KEYS = {"source", "boundary", "unit", "blocks"}
+
+
+def _check_measurement(m, where):
+    if not isinstance(m, dict) or not _MEAS_KEYS <= set(m):
+        raise RecordError(f"{where}: not a Measurement dict (needs {sorted(_MEAS_KEYS)})")
+    if m["source"] not in ("device", "host", "synthetic"):
+        raise RecordError(f"{where}.source={m['source']!r}")
+    if not all(isinstance(b, list) and all(isinstance(x, (int, float)) for x in b) for b in m["blocks"]):
+        raise RecordError(f"{where}.blocks must be a list of numeric lists")
+
+
+def validate_record(rec: "CandidateRecord") -> None:
+    if rec.schema_version != SCHEMA_VERSION:
+        raise RecordError(f"schema_version {rec.schema_version!r} != {SCHEMA_VERSION!r}")
+    if rec.state not in State._value2member_map_:
+        raise RecordError(f"state {rec.state!r}")
+    if rec.failure is not None and rec.failure not in Failure._value2member_map_:
+        raise RecordError(f"failure {rec.failure!r}")
+    if (rec.state == State.REJECTED.value) != (rec.failure is not None):
+        raise RecordError(f"state {rec.state!r} and failure {rec.failure!r} disagree (rejected <=> failure set)")
+    for i, st in enumerate(rec.stages):
+        if st.get("status") not in Evidence._value2member_map_:
+            raise RecordError(f"stages[{i}].status {st.get('status')!r}")
+    if not rec.stages or rec.stages[0].get("stage") not in ("proposed", "budget"):
+        raise RecordError("first stage must be 'proposed' (or 'budget' for budget rejections)")
+    m = rec.measurement
+    if m is not None:
+        if set(m) == {"base", "cand"}:
+            _check_measurement(m["base"], "measurement.base")
+            _check_measurement(m["cand"], "measurement.cand")
+        else:
+            _check_measurement(m, "measurement")
+    if rec.state == State.ACCEPTED.value:
+        if not (rec.backend_traits or {}).get("acceptance_capable"):
+            raise RecordError("accepted record from a backend that is not acceptance_capable")
+        if not (m and set(m) == {"base", "cand"} and m["cand"]["source"] == "device" and m["base"]["source"] == "device"):
+            raise RecordError("accepted record without paired device measurements")

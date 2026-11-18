@@ -1,7 +1,6 @@
 {
   "workload_id": "toy-mlp",
   "evaluation_contract_id": "toy-fp32-v0",
-  "device_profile": "none",
   "correctness_splits": [
     "tune",
     "stress"

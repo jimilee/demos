@@ -1,7 +1,6 @@
 {
   "workload_id": "deit-tiny",
   "evaluation_contract_id": "deit-tiny-fp32-logits-v0",
-  "device_profile": "set-ANDROID_SERIAL-and-HEXAGON_ARCH_VERSION",
   "correctness_splits": [
     "tune",
     "stress"

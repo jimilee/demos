@@ -113,7 +113,8 @@ def test_contract_compare():
 def test_store_records_are_immutable(tmp_path):
     s = Store(tmp_path)
     eid = s.new_experiment({"a": 1}, {})
-    rec = CandidateRecord(eid, {"candidate_id": "abc", "action_id": "x", "kind": "config", "params": {}}, "b", "w", "c", "proposed")
+    rec = CandidateRecord(eid, {"candidate_id": "abc", "action_id": "x", "kind": "config", "params": {}}, "b", "w", "c", "proposed",
+                          stages=[{"stage": "proposed", "status": "passed"}])
     s.write_record(rec)
     with pytest.raises(FileExistsError):
         s.write_record(rec)
@@ -139,3 +140,32 @@ def test_no_vendor_branching_in_common_layers():
 def test_same_config_twice_in_one_second_does_not_collide(tmp_path):
     s = Store(tmp_path)
     assert s.new_experiment({"a": 1}, {}) != s.new_experiment({"a": 1}, {})
+
+
+def test_config_is_strict():
+    from nux.config import ConfigError, parse
+
+    base = {"backend_id": "mock-mlir", "workload_id": "toy-mlp", "evaluation_contract_id": "toy-fp32-v0"}
+    assert parse({**base, "_note": "comments are allowed"}).comments == {"_note": "comments are allowed"}
+    for bad in ({**base, "device_profile": "x"}, {**base, "backend_id": "nope"}, {**base, "correctness_splits": ["holdout"]},
+                {**base, "budget": {"max_candidates": "10"}}, {**base, "candidates": [{"action_id": "a"}]},
+                {**base, "candidates": [{"action_id": "a", "kind": "config", "parmas": {}}]}):
+        with pytest.raises(ConfigError):
+            parse(bad)
+
+
+def test_record_validation_blocks_inconsistent_records(tmp_path):
+    from nux.schema import RecordError
+
+    s = Store(tmp_path)
+    eid = s.new_experiment({}, {})
+    ok_stage = [{"stage": "proposed", "status": "passed"}]
+    cand = {"candidate_id": "c1", "action_id": "x", "kind": "config", "params": {}}
+    for kw in ({"state": "rejected"},  # rejected without failure
+               {"state": "host_correct", "failure": "compile_failure"},  # failure without rejected
+               {"state": "weird"},
+               {"state": "accepted"},  # accepted from a non-acceptance-capable backend
+               {"state": "host_correct", "measurement": {"source": "guess", "boundary": "", "unit": "us", "blocks": []}}):
+        rec = CandidateRecord(eid, dict(cand), "b", "w", "c", stages=ok_stage, **kw)
+        with pytest.raises(RecordError):
+            s.write_record(rec)
