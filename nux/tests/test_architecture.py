@@ -128,3 +128,21 @@ def test_paired_protocol_abba_and_single_warmup():
     assert [s for s, _, _ in calls] == ["B", "C", "C", "B", "B", "C", "C", "B"]
     assert [w for _, w, _ in calls] == [5, 5, 0, 0, 0, 0, 0, 0] and all(p == 1 for _, _, p in calls)
     assert len(b.blocks) == len(c.blocks) == 4
+
+
+# ---- refactor 6/6: thin CLI over services ------------------------------------------------------
+STDLIB_OK = {"__future__", "argparse", "json", "sys"}
+
+
+def test_cli_imports_only_services():
+    for imp in _imports(PKG / "__main__.py"):
+        if imp.startswith("."):
+            assert imp == "." or imp.startswith(".services"), f"__main__.py imports {imp} (use nux.services)"
+        else:
+            assert imp in STDLIB_OK, f"__main__.py imports {imp}"
+
+
+@pytest.mark.parametrize("name", sorted(p.stem for p in (PKG / "services").glob("*.py")))
+def test_services_reach_backends_only_through_registry(name):
+    for imp in _imports(PKG / "services" / f"{name}.py"):
+        assert "backends" not in imp, f"services/{name}.py imports {imp}"

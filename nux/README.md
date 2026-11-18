@@ -23,7 +23,18 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │
 ├── nux/                               # Python 패키지 (python -m nux)
 │   ├── __init__.py                    # SCHEMA_VERSION
-│   ├── __main__.py                    # CLI: env / capabilities / workload / corpus / ir / smoke / run / status
+│   ├── __main__.py                    # CLI: 인자 파싱과 출력만 (nux.services만 import)
+│   │
+│   ├── services/                      # 사용 사례별 service (CLI·테스트·다른 도구가 호출)
+│   │   ├── __init__.py                # ROOT, REPORTS, write_json
+│   │   ├── environment.py             # toolchain lock (등록된 모든 backend manifest 기반, 벤더 코드 없음), capabilities
+│   │   ├── experiment.py              # run_experiment(config): 엄격 로드 → controller → 이벤트 콜백, best_states
+│   │   ├── workload_reports.py        # A0 lock·reference, A4 corpus manifest
+│   │   ├── ir_report.py               # A1 보고서
+│   │   ├── smoke.py                   # A2 compile smoke
+│   │   ├── aot_report.py              # AOT 보고서: llvm-aot-host / llvm-aot-hexagon backend를 그대로 호출 (별도 빌드 경로 없음)
+│   │   ├── vendor.py                  # export_onnx, import_profile
+│   │   └── cache.py                   # artifact store 열기, 작업 디렉토리 정리
 │   │
 │   │   ── 공통 계층 (벤더 이름 금지: tests/test_core.py가 검사) ──
 │   ├── schema.py                      # Candidate, Measurement, CandidateRecord, 상태 사다리(State), 실패 분류(Failure)
@@ -99,15 +110,16 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       └── candidates/<cand>.json     # 후보별 불변 기록 (stage·IR hash·정확성·측정·판정)
 ├── store_mock/                        # A3 mock 실험 기록 (같은 구조)
 │
-├── tests/                             # pytest (63개)
+├── tests/                             # pytest (75개)
 │   ├── conftest.py
 │   ├── test_core.py                   # capability 필터, 통계, 적격성, 계약, 불변 저장, 벤더 분기 금지
 │   ├── test_controller.py             # mock 2종 + host + hexagon 동일 controller, 채택·복원(테스트 전용 device fixture)
 │   ├── test_mlir_and_deit.py          # recipe 의미 보존(host JIT), reproducer, DeiT strict load·corpus
 │   ├── test_aot.py                    # downgrade 규칙, max/min bit-exact, host AOT, Hexagon object + twin, NaN 회귀
-│   ├── test_architecture.py           # 의존 방향 규칙(AST), transforms 오류 계약, recipe 실패 회귀, stage 순서·기록 1회·ABBA
+│   ├── test_architecture.py           # 의존 규칙(AST: backend·공통·CLI·services), transforms 오류 계약, stage 순서·기록 1회·ABBA
 │   ├── test_importers.py              # QNN JSON / Chrome Trace 파싱, 이름 매핑, hint→seed (합성 fixture)
-│   └── test_artifact_store.py         # hash 검증·손상 시 miss, 보존 정책, LRU+pin, 재시작 시 재사용·복원
+│   ├── test_artifact_store.py         # hash 검증·손상 시 miss, 보존 정책, LRU+pin, 재시작 시 재사용·복원
+│   └── test_services.py               # service를 CLI 없이 호출: toolchain lock, run_experiment
 │
 └── .cache/                            # (gitignore) HF 가중치, linalg bytecode, artifacts/ (산출물 저장소), aot/ (작업 디렉토리)
 ```
@@ -119,6 +131,9 @@ flowchart TB
     subgraph AGENT["Agent (program.md)"]
         A1["가설 + 후보 작성<br/>config · ir_recipe · lowering_path · kernel"]
     end
+
+    CLI["__main__.py (CLI)<br/>인자 파싱 · 출력만"]
+    SVC["services/<br/>experiment · reports · vendor · cache · environment"]
 
     subgraph VREF["벤더 레퍼런스 (선택)"]
         IMP["importers/<br/>QNN JSON · Chrome Trace · ONNX 이름 매핑"]
@@ -156,7 +171,10 @@ flowchart TB
     end
 
     OX --> IMP --> HN -->|"seeds_*.json"| CFG
-    A1 --> CFG --> CTL
+    A1 --> CFG --> CLI --> SVC --> CTL
+    SVC --> OX
+    SVC --> IMP
+    SVC --> REG
     CTL --> STG
     STG --> CAP
     STG --> MEAS
@@ -353,7 +371,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
 | 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
-| 테스트 | `python -m pytest -q tests` | 63 passed |
+| 테스트 | `python -m pytest -q tests` | 75 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 
@@ -479,7 +497,7 @@ flowchart LR
    python -m nux import-profile --format qnn-json --file profile_json.json \
        --label qairt-<버전>-<단말> --precision fp16 \
        --build-config htp_config.json --converter-args "<사용한 qairt-converter 인자>" \
-       --targets hexagon-mlir,llvm-aot-hexagon
+       --targets hexagon-mlir,llvm-aot-hexagon            # seed config를 만들 backend
    python -m nux run --config reports/vendor_ref/<label>/seeds_hexagon-mlir.json
    ```
 
@@ -532,7 +550,8 @@ python -m pytest -q tests
 cd hexagon-mlir && source scripts/set_local_env.sh && export ANDROID_SERIAL=<serial>
 export TRITON_BACKENDS_IN_TREE=1     # stale triton dist-info 대응 (../autokernel-hexagon README 7.5)
 cd nux
-python -m nux env                    # hexagon.toolchain_importable=true, device_state=device 확인
+python -m nux env                    # reports/env.json의 backends.hexagon-mlir.environment에서
+                                     # toolchain_importable=true, device_state=device 확인
 python -m nux capabilities --backend hexagon-mlir   # 실제 HexagonOptions 필드로 capability 재계산
 python -m nux smoke --backend hexagon-mlir          # target_compiled 여부 (최소 op → block → 전체)
 python -m nux run --config configs/deit_hexagon.json

@@ -4,15 +4,29 @@
   "llc": "/usr/bin/llc",
   "llc_version": "18.1.3",
   "llc_has_hexagon": true,
-  "workdir": ".cache/aot/nux_aot_q1zxszdo",
   "routes": {
-    "host-mlir-llvm": {
-      "route": "mlir-own-llvm",
-      "seconds": 28.24,
-      "sha256": "d07a2eab4616b3b15bf91c849511f7190774943605c9959fd2ce7189db0307d9",
-      "bytes": 23945384,
-      "file": "ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped",
-      "so_sha256": "cc05dcdbceb92213221767440cce2d4355d00a27c5838926aa29e7dbc8999a46",
+    "llvm-aot-host": {
+      "build_s": 28.1,
+      "files": {
+        "object": {
+          "bytes": 23945384,
+          "file": "ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped",
+          "role": "intermediate",
+          "sha256": "d07a2eab4616b3b15bf91c849511f7190774943605c9959fd2ce7189db0307d9"
+        },
+        "shared_library": {
+          "bytes": 23957072,
+          "file": "ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, BuildID[sha1]=6dd3ae5abdb5829aa5d945bc390e54807312633a, not stripped",
+          "role": "primary",
+          "sha256": "cc05dcdbceb92213221767440cce2d4355d00a27c5838926aa29e7dbc8999a46"
+        },
+        "source_ir": {
+          "bytes": 46081122,
+          "file": "ASCII text",
+          "role": "source",
+          "sha256": null
+        }
+      },
       "correctness": {
         "ok": true,
         "max_abs_err": 1.2636184692382812e-05,
@@ -22,43 +36,82 @@
             "ok": true,
             "max_abs_err": 9.119510650634766e-06,
             "top1_match": true,
-            "run_s": 1.11
+            "run_s": 1.02
           },
           {
             "input_id": "tune_blobs_2",
             "ok": true,
             "max_abs_err": 1.2636184692382812e-05,
             "top1_match": true,
-            "run_s": 1.1
+            "run_s": 0.96
           },
           {
             "input_id": "stress_white_0",
             "ok": true,
             "max_abs_err": 2.950429916381836e-06,
             "top1_match": true,
-            "run_s": 1.07
+            "run_s": 0.99
           }
         ]
       }
     },
-    "llc-x86_64": {
-      "cmd": "/usr/bin/llc -O2 -filetype=obj -march=x86-64 -relocation-model=pic /home/user/demos/nux/.cache/aot/nux_aot_q1zxszdo/model.ll -o /home/user/demos/nux/.cache/aot/nux_aot_q1zxszdo/model_x86_64.o",
-      "seconds": 10.82,
-      "stderr": "",
-      "sha256": "5c2170121b809a3fcd3375a4b499af0a07121485d1b29065ff395937fac6cddb",
-      "bytes": 23504496,
-      "file": "ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped",
-      "entry_symbol": [
-        "_mlir_ciface_deit_tiny",
-        "deit_tiny"
+    "llvm-aot-hexagon": {
+      "build_s": 60.5,
+      "target": "upstream-llvm-18.1.3/hexagon-v73",
+      "files": {
+        "llvm_ir": {
+          "bytes": 151820066,
+          "file": "ASCII text, with very long lines (55294)",
+          "role": "intermediate",
+          "sha256": null
+        },
+        "hexagon_object": {
+          "bytes": 23542568,
+          "file": "ELF 32-bit LSB relocatable, QUALCOMM DSP6, version 1 (SYSV), not stripped",
+          "role": "primary",
+          "sha256": "6637fc496edb0eea8acb200a9c26385c20fa138fbc0314227311175692b7df55"
+        },
+        "twin_x86_object": {
+          "bytes": 23504496,
+          "file": "ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped",
+          "role": "intermediate",
+          "sha256": "5c2170121b809a3fcd3375a4b499af0a07121485d1b29065ff395937fac6cddb"
+        },
+        "twin_so": {
+          "bytes": 23493952,
+          "file": "ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, BuildID[sha1]=f5e3d246f4d69356a3b29d7951152c2de2daed80, not stripped",
+          "role": "verification",
+          "sha256": null
+        },
+        "source_ir": {
+          "bytes": 46081122,
+          "file": "ASCII text",
+          "role": "source",
+          "sha256": null
+        }
+      },
+      "provenance": [
+        "downgrade rewrites {'getelementptr (inbounds )?(?:n': 2517, '\\\\bcaptures\\\\([^)]*\\\\)\\\\s?': 2, '\\\\b(?:nocreateundeforpoison|nof': 4}",
+        "llvm.maximum/minimum expanded: 12",
+        "/usr/bin/llc -O2 -filetype=obj -march=hexagon -mcpu=hexagonv73 -mattr=+hvxv73,+hvx-length128b /home/user/demos/nux/.cache/aot/nux_hex_e5lu2jef/model.ll -o /home/user/demos/nux/.cache/aot/nux_hex_e5lu2jef/deit_tiny_hexagon.o"
       ],
-      "undefined_symbols": [
-        "erff",
-        "expf",
-        "malloc",
-        "memcpy"
-      ],
-      "correctness": {
+      "llvm_ir_sha256": "d18a2124d3223fde7c55ca91d87d8ee42dc101d585b66254f76d55237b4591a7",
+      "symbols": {
+        "entry_symbol": [
+          "_mlir_ciface_deit_tiny",
+          "deit_tiny"
+        ],
+        "undefined_symbols": [
+          "__hexagon_divdf3",
+          "__hexagon_divsf3",
+          "__hexagon_sqrtf",
+          "erff",
+          "expf",
+          "malloc",
+          "memcpy"
+        ]
+      },
+      "twin_correctness": {
         "ok": true,
         "max_abs_err": 1.2636184692382812e-05,
         "per_input": [
@@ -67,58 +120,26 @@
             "ok": true,
             "max_abs_err": 9.119510650634766e-06,
             "top1_match": true,
-            "run_s": 3.2
+            "run_s": 2.89
           },
           {
             "input_id": "tune_blobs_2",
             "ok": true,
             "max_abs_err": 1.2636184692382812e-05,
             "top1_match": true,
-            "run_s": 3.17
+            "run_s": 2.82
           },
           {
             "input_id": "stress_white_0",
             "ok": true,
             "max_abs_err": 2.950429916381836e-06,
             "top1_match": true,
-            "run_s": 3.09
+            "run_s": 2.99
           }
         ]
       },
-      "note": "twin build of the exact downgraded IR used for the Hexagon object"
-    },
-    "llc-hexagon-v73": {
-      "cmd": "/usr/bin/llc -O2 -filetype=obj -march=hexagon -mcpu=hexagonv73 -mattr=+hvxv73,+hvx-length128b /home/user/demos/nux/.cache/aot/nux_aot_q1zxszdo/model.ll -o /home/user/demos/nux/.cache/aot/nux_aot_q1zxszdo/model_hexagon-v73.o",
-      "seconds": 26.58,
-      "stderr": "",
-      "sha256": "6637fc496edb0eea8acb200a9c26385c20fa138fbc0314227311175692b7df55",
-      "bytes": 23542568,
-      "file": "ELF 32-bit LSB relocatable, QUALCOMM DSP6, version 1 (SYSV), not stripped",
-      "entry_symbol": [
-        "_mlir_ciface_deit_tiny",
-        "deit_tiny"
-      ],
-      "undefined_symbols": [
-        "__hexagon_divdf3",
-        "__hexagon_divsf3",
-        "__hexagon_sqrtf",
-        "erff",
-        "expf",
-        "malloc",
-        "memcpy"
-      ],
+      "twin_note": "x86-64 host build of the same downgraded IR as the Hexagon object (verification only)",
       "execution": "pending: needs Hexagon SDK runtime (FastRPC skel / run_main_on_hexagon) and a device"
     }
-  },
-  "downgrade": {
-    "llvm_ir_bytes": 151820066,
-    "rewrites": {
-      "getelementptr (inbounds )?(?:n": 2517,
-      "\\bcaptures\\([^)]*\\)\\s?": 2,
-      "\\b(?:nocreateundeforpoison|nof": 4
-    },
-    "fmaxmin_expanded": 12,
-    "seconds": 32.7,
-    "llvm_ir_sha256": "d18a2124d3223fde7c55ca91d87d8ee42dc101d585b66254f76d55237b4591a7"
   }
 }

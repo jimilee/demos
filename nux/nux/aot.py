@@ -284,3 +284,14 @@ def workdir(prefix="nux_aot_"):
     base = workdir_base()
     base.mkdir(parents=True, exist_ok=True)
     return Path(tempfile.mkdtemp(prefix=prefix, dir=base))
+
+
+def symbols(obj_path, func_name) -> dict | None:
+    """Entry symbols matching func_name and undefined symbols of an object file (llvm-nm), or None."""
+    nm = shutil.which("llvm-nm-18") or shutil.which("llvm-nm")
+    if not nm:
+        return None
+    defined = subprocess.run([nm, "--defined-only", str(obj_path)], capture_output=True, text=True).stdout
+    undef = subprocess.run([nm, "--undefined-only", str(obj_path)], capture_output=True, text=True).stdout
+    return {"entry_symbol": [ln.split()[-1] for ln in defined.splitlines() if func_name in ln][:4],
+            "undefined_symbols": sorted({ln.split()[-1] for ln in undef.splitlines() if ln.strip()})}
