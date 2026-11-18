@@ -2,6 +2,7 @@
 
 Vendor-neutral NPU auto-optimization layer (plan: `mobile_compiler_autokernel_plan_v0_3.md`, preparation stage A0–A4).
 Read `README.md` §1 (structure, diagrams) before changing code.
+Architecture reviews and the refactoring backlog (status per item, priorities): `docs/architecture_review.md`.
 
 ## Environment
 
