@@ -42,27 +42,52 @@ class ActionSpec:
     tags: list = field(default_factory=list)  # optimization categories (fusion, layout, tiling, ...) used to map hints
 
     def __post_init__(self):
-        assert self.kind in ACTION_KINDS, self.kind
-        assert self.support in SUPPORT, self.support
-        assert self.validation in VALIDATION, self.validation
-        assert all(t in TAGS for t in self.tags), self.tags
+        _check(self.kind, ACTION_KINDS, f"{self.action_id}.kind")
+        _check(self.support, SUPPORT, f"{self.action_id}.support")
+        _check(self.validation, VALIDATION, f"{self.action_id}.validation")
+        for t in self.tags:
+            _check(t, TAGS, f"{self.action_id}.tags")
         self.params = [p if isinstance(p, ParamSpec) else ParamSpec(**p) for p in self.params]
+
+
+EXECUTES_ON = ("device", "host", "none")
+TIERS = ("device", "host", "synthetic", "none")
+
+
+def _check(value, allowed, what):
+    if value not in allowed:
+        raise ValueError(f"{what}={value!r} not in {allowed}")
+
+
+@dataclass
+class ExecutionCaps:
+    """What the backend can do with an artifact (independent of how trustworthy its timings are)."""
+
+    target_codegen: bool = False  # produces code for a non-host target architecture
+    executes_on: str = "none"  # where outputs are computed: device | host | none
+
+    def __post_init__(self):
+        _check(self.executes_on, EXECUTES_ON, "execution.executes_on")
 
 
 @dataclass
 class MeasurementCaps:
     e2e: str = "unavailable"  # supported | experimental | unavailable
+    tier: str = "none"  # evidence tier of timings: device | host | synthetic | none
     e2e_boundary: str = ""
     units: str = "us"
     op_profile: str = "unavailable"
     counters: list = field(default_factory=list)
     notes: str = ""
 
+    def __post_init__(self):
+        _check(self.e2e, SUPPORT, "measurement.e2e")
+        _check(self.tier, TIERS, "measurement.tier")
+
 
 @dataclass
 class CapabilityManifest:
     backend_id: str
-    kind: str  # device | host_reference | mock
     version: str
     compiler_profile: str
     runtime_profile: str
@@ -71,16 +96,33 @@ class CapabilityManifest:
     dtypes: list
     actions: list  # [ActionSpec]
     measurement: MeasurementCaps
+    execution: ExecutionCaps = field(default_factory=ExecutionCaps)
     compatible_runtimes: list = field(default_factory=list)
     device_profile: dict = field(default_factory=dict)
     environment: dict = field(default_factory=dict)  # discovered toolchain / device facts
     notes: list = field(default_factory=list)
 
     def __post_init__(self):
-        assert self.kind in ("device", "host_reference", "mock"), self.kind
         self.actions = [a if isinstance(a, ActionSpec) else ActionSpec(**a) for a in self.actions]
         if isinstance(self.measurement, dict):
             self.measurement = MeasurementCaps(**self.measurement)
+        if isinstance(self.execution, dict):
+            self.execution = ExecutionCaps(**self.execution)
+
+    # ---- derived properties: the ONLY way common code asks "what kind of backend is this" ----
+    @property
+    def measures_e2e(self) -> bool:
+        return self.measurement.e2e in ("supported", "experimental")
+
+    @property
+    def acceptance_capable(self) -> bool:
+        """Can this backend ever produce acceptance evidence? (device outputs + device E2E timings)"""
+        return self.execution.executes_on == "device" and self.measurement.tier == "device" and self.measures_e2e
+
+    def traits(self) -> dict:
+        return {"executes_on": self.execution.executes_on, "target_codegen": self.execution.target_codegen,
+                "measurement_tier": self.measurement.tier, "e2e": self.measurement.e2e,
+                "acceptance_capable": self.acceptance_capable}
 
     def action(self, action_id: str) -> ActionSpec | None:
         return next((a for a in self.actions if a.action_id == action_id), None)

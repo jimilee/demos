@@ -13,7 +13,7 @@ from __future__ import annotations
 import random
 
 from ..adapters import AdapterBundle, Artifact, CompilerAdapter, CompileFailure, ProfilerAdapter, RuntimeAdapter, RuntimeFailure, Unsupported
-from ..capability import ActionSpec, CapabilityManifest, MeasurementCaps, ParamSpec
+from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
 from ..registry import register
 from ..schema import Measurement
 
@@ -23,10 +23,11 @@ FAULT = [ParamSpec("fail", "enum", choices=["none", "compile", "runtime"]), Para
 
 def _manifest(bid, actions, stages):
     return CapabilityManifest(
-        backend_id=bid, kind="mock", version="mock-1", compiler_profile=f"{bid}-compiler",
+        backend_id=bid, version="mock-1", compiler_profile=f"{bid}-compiler",
         runtime_profile=f"{bid}-runtime", profiler_profile=f"{bid}-synthetic", input_stages=stages,
         dtypes=["float32"], actions=actions, compatible_runtimes=[f"{bid}-runtime"],
-        measurement=MeasurementCaps(e2e="supported", e2e_boundary="SYNTHETIC", units="us",
+        execution=ExecutionCaps(target_codegen=False, executes_on="host"),  # outputs: real framework compute on host
+        measurement=MeasurementCaps(e2e="supported", tier="synthetic", e2e_boundary="SYNTHETIC", units="us",
                                     notes="synthetic timings for controller tests only"),
         environment={"runtime_features": ["mock-session"]})
 

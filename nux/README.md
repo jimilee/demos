@@ -92,7 +92,7 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       └── candidates/<cand>.json     # 후보별 불변 기록 (stage·IR hash·정확성·측정·판정)
 ├── store_mock/                        # A3 mock 실험 기록 (같은 구조)
 │
-├── tests/                             # pytest (26개)
+├── tests/                             # pytest (28개)
 │   ├── conftest.py
 │   ├── test_core.py                   # capability 필터, 통계, 적격성, 계약, 불변 저장, 벤더 분기 금지
 │   ├── test_controller.py             # mock 2종 + host + hexagon 동일 controller, 채택·복원(테스트 전용 device fixture)
@@ -125,11 +125,11 @@ flowchart TB
     REG["registry.py<br/>BackendRegistry"]
 
     subgraph BACKENDS["backends/ — adapter bundle (Compiler · Runtime · Profiler · Capability)"]
-        HEX["hexagon-mlir<br/>kind=device<br/>E2E: unavailable"]
-        HOST["host-linalg-jit<br/>kind=host_reference<br/>host 시간만"]
-        MOCK["mock-mlir / mock-sdk<br/>kind=mock<br/>synthetic 시간"]
-        AOTH["llvm-aot-host<br/>kind=host_reference<br/>AOT .so"]
-        AOTX["llvm-aot-hexagon<br/>kind=device · codegen only<br/>Hexagon object"]
+        HEX["hexagon-mlir<br/>exec=device · codegen<br/>E2E: unavailable"]
+        HOST["host-linalg-jit<br/>exec=host<br/>meas=host"]
+        MOCK["mock-mlir / mock-sdk<br/>exec=host<br/>meas=synthetic"]
+        AOTH["llvm-aot-host<br/>exec=host · AOT .so<br/>meas=host"]
+        AOTX["llvm-aot-hexagon<br/>exec=none · codegen<br/>Hexagon object"]
         NEXT["(2번째 벤더)<br/>C0–C2 예정"]
     end
 
@@ -230,13 +230,28 @@ flowchart LR
 
 ### 1.6 등록된 backend
 
-| backend_id | kind | 역할 | E2E 측정 |
+backend의 성격은 하나의 `kind`가 아니라 **서로 독립인 세 속성**으로 선언한다 (`nux/capability.py`).
+
+| 속성 | 값 | 뜻 |
+|---|---|---|
+| `execution.executes_on` | `device` / `host` / `none` | 출력이 어디서 계산되는가 (정확성 증거의 수준) |
+| `execution.target_codegen` | bool | host가 아닌 타깃 아키텍처 코드를 생성하는가 |
+| `measurement.tier` (+ `e2e`) | `device` / `host` / `synthetic` / `none` | 시간 측정의 증거 수준 |
+
+`acceptance_capable` = `executes_on == device` **이고** `tier == device` **이고** E2E 측정 가능.
+controller의 모드(prepare/device), 정확성 단계 이름, `target_compiled` 부여, 측정 적격성은 모두
+이 속성에서 계산한다. backend 이름이나 종류로 분기하지 않는다
+(`tests/test_core.py::test_no_vendor_branching_in_common_layers`가 공통 모듈에서 이를 검사).
+prepare 모드에서의 측정은 config의 `informational_measurement: true`일 때만 하며, 그 결과는 기록되지만
+적격(admissible)일 수 없다.
+
+| backend_id | executes_on / codegen / tier | 역할 | E2E 측정 |
 |---|---|---|---|
-| `hexagon-mlir` | device | Hexagon-MLIR (rev `9ec15e8` 기준 capability). linalg → `translate_linalg_to_obj` → target object. 단말 정확성은 공식 one-shot launcher(`run_torch_mlir`) | **unavailable**: 공개 launcher는 호출마다 독립 프로세스로 실행되고 session 재사용이 없다. 계획 §9.1의 요청 경계 runner는 adapter 선행 과제 |
-| `host-linalg-jit` | host_reference | torch-mlir linalg → LLVM → MLIR ExecutionEngine (host CPU). IR 후보의 `ir_valid`/`host_correct` 증거 | host 시간만 (채택 불가) |
-| `mock-mlir`, `mock-sdk` | mock | A3 구조 검증. 출력은 실제 framework 결과, 시간은 synthetic | synthetic (채택 불가) |
-| `llvm-aot-host` | host_reference | AOT: MLIR 자체 LLVM으로 x86-64 `.o` → `.so`, ctypes로 실행 | host 시간만 (채택 불가) |
-| `llvm-aot-hexagon` | device (codegen only) | AOT: upstream LLVM(llc 18) Hexagon v73 object. 같은 IR의 x86 twin으로 의미 검증. **Hexagon-MLIR 파이프라인이 아님** | unavailable (SDK runtime·단말 필요) |
+| `hexagon-mlir` | device / ✓ / device | Hexagon-MLIR (rev `9ec15e8` 기준 capability). linalg → `translate_linalg_to_obj` → target object. 단말 정확성은 공식 one-shot launcher(`run_torch_mlir`) | **unavailable**: 공개 launcher는 호출마다 독립 프로세스로 실행되고 session 재사용이 없다. 계획 §9.1의 요청 경계 runner는 adapter 선행 과제 |
+| `host-linalg-jit` | host / – / host | torch-mlir linalg → LLVM → MLIR ExecutionEngine (host CPU). IR 후보의 `ir_valid`/`host_correct` 증거 | host 시간만 (채택 불가) |
+| `mock-mlir`, `mock-sdk` | host / – / synthetic | A3 구조 검증. 출력은 실제 framework 결과, 시간은 synthetic | synthetic (채택 불가) |
+| `llvm-aot-host` | host / – / host | AOT: MLIR 자체 LLVM으로 x86-64 `.o` → `.so`, ctypes로 실행 | host 시간만 (채택 불가) |
+| `llvm-aot-hexagon` | none / ✓ / none | AOT: upstream LLVM(llc 18) Hexagon v73 object. 같은 IR의 x86 twin으로 의미 검증. **Hexagon-MLIR 파이프라인이 아님** | unavailable (SDK runtime·단말 필요) |
 
 새 벤더를 추가하려면 `nux/backends/<vendor>.py`에서 `@register("<id>")`로 bundle을 등록하고,
 `configs/`와 conformance test만 추가하면 된다. 공통 모듈은 바꾸지 않는다.
@@ -248,7 +263,7 @@ flowchart LR
 환경 때문에 못 한 단계(SDK 없음, 단말 없음)는 실패가 아니라 `pending`이다.
 
 `accepted`가 되려면 다음을 모두 만족해야 한다.
-1. backend kind가 `device`다.
+1. backend가 `acceptance_capable`이다 (device에서 출력 계산 + device tier E2E 측정).
 2. baseline과 후보 모두 `Measurement.source == "device"`이고 instrumentation이 없다.
 3. device 정확성을 통과했다.
 4. paired block 판정을 통과했다: median 이득 ≥3%, speedup bootstrap 95% CI 하한 >1.0, p95 회귀 ≤2%.
@@ -271,7 +286,7 @@ flowchart LR
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
 | 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
-| 테스트 | `python -m pytest -q tests` | 26 passed |
+| 테스트 | `python -m pytest -q tests` | 28 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 

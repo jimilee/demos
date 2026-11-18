@@ -1,0 +1,179 @@
+{
+  "experiment_id": "20261118-045332-e781cf",
+  "candidate": {
+    "action_id": "llc.opt",
+    "kind": "config",
+    "params": {
+      "opt": "-O3"
+    },
+    "hypothesis": "llc -O3 for the Hexagon object",
+    "expected_savings": "",
+    "possible_costs": "",
+    "scope": "module",
+    "parent_id": "c7db5b495d0f",
+    "payload_files": {},
+    "candidate_id": "8e95ffd40163"
+  },
+  "backend_id": "llvm-aot-hexagon",
+  "workload_id": "deit-tiny",
+  "contract_id": "deit-tiny-fp32-logits-v0",
+  "state": "target_compiled",
+  "failure": null,
+  "failure_detail": "Hexagon object built; executing it needs the Hexagon SDK runtime (FastRPC skel / run_main_on_hexagon) and a device",
+  "stages": [
+    {
+      "stage": "proposed",
+      "status": "passed",
+      "detail": "",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "capability",
+      "status": "passed",
+      "detail": "ok",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "compile",
+      "status": "passed",
+      "detail": "hexagon .o 23558504 B in 20.55s (ELF 32-bit LSB relocatable, QUALCOMM DSP6, version 1 (SYSV), not stripped)",
+      "seconds": 60.950890673,
+      "artifacts": {
+        "kind": "object",
+        "provenance": [
+          "downgrade rewrites {'getelementptr (inbounds )?(?:n': 2517, '\\\\bcaptures\\\\([^)]*\\\\)\\\\s?': 2, '\\\\b(?:nocreateundeforpoison|nof': 4}",
+          "llvm.maximum/minimum expanded: 12",
+          "/usr/bin/llc -O3 -filetype=obj -march=hexagon -mcpu=hexagonv73 -mattr=+hvxv73,+hvx-length128b /home/user/demos/nux/.cache/aot/nux_hex_3_lv9xk8/model.ll -o /home/user/demos/nux/.cache/aot/nux_hex_3_lv9xk8/deit_tiny_hexagon.o"
+        ]
+      }
+    },
+    {
+      "stage": "ir_verify",
+      "status": "passed",
+      "detail": "MLIR verifier (structural only)",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "twin_correctness",
+      "status": "passed",
+      "detail": "x86-64 build of the same downgraded LLVM IR given to the Hexagon backend: max_abs_err=1.26e-05 on 4 inputs",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "device_correctness",
+      "status": "pending",
+      "detail": "Hexagon object built; executing it needs the Hexagon SDK runtime (FastRPC skel / run_main_on_hexagon) and a device",
+      "seconds": null,
+      "artifacts": {}
+    }
+  ],
+  "requested_config": {
+    "opt": "-O3"
+  },
+  "effective_config": {
+    "opt": "-O3"
+  },
+  "ir_hashes": {
+    "linalg-on-tensors": "cc093913c5545587975b2a3ae0cbf02a47e0f2a78e2ccd32b38564bafed0b6e8",
+    "llvm-ir-downgraded": "d18a2124d3223fde7c55ca91d87d8ee42dc101d585b66254f76d55237b4591a7"
+  },
+  "artifact_hashes": {
+    "hexagon_object": "baa0194a4faa493dbf3ccc35e702bd41d413cca3db5fbc45917ee4f2daeec929",
+    "twin_x86_object": "5c2170121b809a3fcd3375a4b499af0a07121485d1b29065ff395937fac6cddb"
+  },
+  "correctness": {
+    "ok": true,
+    "n_inputs": 4,
+    "n_failed": 0,
+    "max_abs_err": 1.2636184692382812e-05,
+    "failed_inputs": [],
+    "task_accuracy": "pending",
+    "splits": [
+      "tune",
+      "stress"
+    ],
+    "per_input": [
+      {
+        "input_id": "tune_blobs_1",
+        "ok": true,
+        "max_abs_err": 9.119510650634766e-06,
+        "mean_abs_err": 2.055324614048004e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "tune_blobs_2",
+        "ok": true,
+        "max_abs_err": 1.2636184692382812e-05,
+        "mean_abs_err": 1.6635581851005554e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "stress_white_0",
+        "ok": true,
+        "max_abs_err": 2.950429916381836e-06,
+        "mean_abs_err": 6.980448961257934e-07,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "stress_black_0",
+        "ok": true,
+        "max_abs_err": 3.933906555175781e-06,
+        "mean_abs_err": 7.529931608587504e-07,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      }
+    ]
+  },
+  "measurement": null,
+  "decision": null,
+  "toolchain_lock": {
+    "python": "3.13.18",
+    "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+    "torch": "2.15.0",
+    "torch-mlir": "20261101",
+    "transformers": "5.23.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "hexagon": {
+      "toolchain_importable": false,
+      "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+      "HEXAGON_ARCH_VERSION": null,
+      "HEXAGON_SDK_ROOT": null,
+      "HEXAGON_TOOLS": null,
+      "HEXKL_ROOT": null,
+      "adb": null,
+      "device_state": null,
+      "source_rev_assumed": "9ec15e8"
+    }
+  },
+  "backend_traits": {
+    "executes_on": "none",
+    "target_codegen": true,
+    "measurement_tier": "none",
+    "e2e": "unavailable",
+    "acceptance_capable": false
+  },
+  "cache_key": "84339f60bf23a58205db",
+  "created_at": "2026-11-18T04:58:25+0000",
+  "schema_version": "nux-schema-0.2"
+}

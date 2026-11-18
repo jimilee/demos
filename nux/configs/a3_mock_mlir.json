@@ -56,5 +56,6 @@
       "kind": "lowering_path",
       "hypothesis": "unavailable action: filtered"
     }
-  ]
+  ],
+  "informational_measurement": true
 }

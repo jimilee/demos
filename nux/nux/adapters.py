@@ -135,5 +135,5 @@ class AdapterBundle:
         return self.manifest.backend_id
 
     @property
-    def kind(self):
-        return self.manifest.kind
+    def traits(self):
+        return self.manifest.traits()

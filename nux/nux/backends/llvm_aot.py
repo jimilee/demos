@@ -23,7 +23,7 @@ from .. import aot
 from .. import mlir_host as H
 from ..adapters import (AdapterBundle, Artifact, CompilerAdapter, CompileFailure, DeviceUnavailable, ProfilerAdapter,
                         RuntimeAdapter, Unsupported)
-from ..capability import ActionSpec, CapabilityManifest, MeasurementCaps, ParamSpec
+from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
 from ..registry import register
 from .host_linalg import Compiler as HostCompiler
 from .host_linalg import Profiler as HostProfiler
@@ -56,12 +56,13 @@ HOST_ID = "llvm-aot-host"
 
 def host_manifest():
     return CapabilityManifest(
-        backend_id=HOST_ID, kind="host_reference", version="mlir-own-llvm", compiler_profile="mlir-llvm-aot/x86_64",
+        backend_id=HOST_ID, version="mlir-own-llvm", compiler_profile="mlir-llvm-aot/x86_64",
         runtime_profile="ctypes-shared-library", profiler_profile="host-wallclock", input_stages=["linalg-on-tensors"],
         dtypes=["float32"], compatible_runtimes=["ctypes-shared-library"],
         actions=_recipe_actions("upstream MLIR pass; AOT shared library") + [
             ActionSpec("aot.opt_level", "config", "LLVM opt level", "aot", params=[ParamSpec("opt_level", "int", min=0, max=3)])],
-        measurement=MeasurementCaps(e2e="supported", e2e_boundary="host CPU: ctypes call into AOT .so (NOT an NPU)", units="ms"),
+        execution=ExecutionCaps(target_codegen=False, executes_on="host"),
+        measurement=MeasurementCaps(e2e="supported", tier="host", e2e_boundary="host CPU: ctypes call into AOT .so (NOT an NPU)", units="ms"),
         environment={"runtime_features": ["host-aot"]})
 
 
@@ -129,12 +130,13 @@ def hex_manifest():
     t = hex_target()
     note = f"system llc {v}; hexagon target {'present' if has else 'MISSING'}"
     return CapabilityManifest(
-        backend_id=HEX_ID, kind="device", version=f"llc-{v}", compiler_profile=f"upstream-llvm-{v}/{t}",
+        backend_id=HEX_ID, version=f"llc-{v}", compiler_profile=f"upstream-llvm-{v}/{t}",
         runtime_profile="none (needs Hexagon SDK runtime)", profiler_profile="none", input_stages=["linalg-on-tensors"],
         dtypes=["float32"], compatible_runtimes=["none (needs Hexagon SDK runtime)"],
         actions=_recipe_actions("upstream MLIR pass; codegen by upstream LLVM Hexagon backend") + [
             ActionSpec("llc.opt", "config", "llc optimization level", "aot", params=[ParamSpec("opt", "enum", choices=["-O0", "-O1", "-O2", "-O3"])])],
-        measurement=MeasurementCaps(e2e="unavailable", e2e_boundary="codegen-only backend"),
+        execution=ExecutionCaps(target_codegen=True, executes_on="none"),
+        measurement=MeasurementCaps(e2e="unavailable", tier="none", e2e_boundary="codegen-only backend"),
         device_profile={"arch": t.split("-v")[-1] if "-v" in t else None},
         environment={"llc": aot.llc_path(), "llc_version": v, "hexagon_target": has, "runtime_features": []},
         notes=[note, "upstream LLVM codegen, not the Hexagon-MLIR pipeline; LLVM 18 supports up to hexagonv73"])

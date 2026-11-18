@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .schema import dump
 
-TSV_COLUMNS = ["experiment_id", "candidate_id", "created_at", "backend_id", "backend_kind", "workload_id",
+TSV_COLUMNS = ["experiment_id", "candidate_id", "created_at", "backend_id", "backend_traits", "workload_id",
                "contract_id", "action_id", "kind", "params", "hypothesis", "state", "failure", "failure_detail",
                "ir_hash", "artifact_hashes", "max_abs_err", "n_inputs", "measurement_source", "median",
                "unit", "decision", "cache_key", "record"]
@@ -55,11 +55,13 @@ class Store:
 
     def _tsv(self, rec, path):
         m = rec.measurement or {}
+        m = m.get("cand", m)  # paired records keep base and cand separately; summarize the candidate
         blocks = m.get("blocks") or []
+        t = rec.backend_traits or {}
         flat = sorted(x for b in blocks for x in b)
         row = {
             "experiment_id": rec.experiment_id, "candidate_id": rec.candidate["candidate_id"], "created_at": rec.created_at,
-            "backend_id": rec.backend_id, "backend_kind": rec.effective_config.get("_backend_kind", ""),
+            "backend_id": rec.backend_id, "backend_traits": f"exec={t.get('executes_on', '')},codegen={t.get('target_codegen', '')},meas={t.get('measurement_tier', '')}",
             "workload_id": rec.workload_id, "contract_id": rec.contract_id, "action_id": rec.candidate["action_id"],
             "kind": rec.candidate["kind"], "params": json.dumps(rec.candidate["params"], sort_keys=True),
             "hypothesis": rec.candidate.get("hypothesis", ""), "state": rec.state, "failure": rec.failure or "",

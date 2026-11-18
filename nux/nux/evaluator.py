@@ -34,12 +34,18 @@ def check_correctness(run_fn, workload, contract: C.Contract, corpus, splits=("t
     return s
 
 
-def admissible(measurement, bundle_kind: str):
-    """Return (ok, reason) for using a measurement in an acceptance decision."""
+def admissible(measurement, manifest):
+    """Return (ok, reason) for using a measurement in an acceptance decision.
+
+    Decided only from declared backend traits and the measurement's own source,
+    never from backend names.
+    """
     if measurement is None:
         return False, "no measurement"
-    if bundle_kind != "device":
-        return False, f"backend kind '{bundle_kind}' cannot produce acceptance evidence"
+    if not manifest.acceptance_capable:
+        t = manifest.traits()
+        return False, (f"backend traits cannot produce acceptance evidence "
+                       f"(executes_on={t['executes_on']}, measurement_tier={t['measurement_tier']}, e2e={t['e2e']})")
     if measurement.source != "device":
         return False, f"measurement source '{measurement.source}' is not a real device measurement"
     if measurement.instrumentation:
@@ -49,15 +55,16 @@ def admissible(measurement, bundle_kind: str):
     return True, "ok"
 
 
-def judge(base_meas, cand_meas, bundle_kind, policy: stats.Policy, device_correct: bool):
-    ok_b, why_b = admissible(base_meas, bundle_kind)
-    ok_c, why_c = admissible(cand_meas, bundle_kind)
+def judge(base_meas, cand_meas, manifest, policy: stats.Policy, device_correct: bool):
+    """Admissibility first (it is the more fundamental reason), then device correctness, then statistics."""
+    ok_b, why_b = admissible(base_meas, manifest)
+    ok_c, why_c = admissible(cand_meas, manifest)
+    if not (ok_b and ok_c):
+        have = base_meas is not None and cand_meas is not None and base_meas.blocks and cand_meas.blocks
+        info = stats.decide(base_meas.blocks, cand_meas.blocks, policy) if have else {}
+        return {"verdict": "not_admissible", "reasons": sorted({r for r in (why_b, why_c) if r != "ok"}),
+                "informational_stats": info}
     if not device_correct:
         return {"verdict": "rejected", "reasons": ["device correctness not established"]}
-    if not (ok_b and ok_c):
-        # still compute stats for information, but never accept
-        info = stats.decide(base_meas.blocks, cand_meas.blocks, policy) if base_meas and cand_meas and base_meas.blocks and cand_meas.blocks else {}
-        return {"verdict": "not_admissible", "reasons": [r for r in (why_b, why_c) if r != "ok"],
-                "informational_stats": info}
     d = stats.decide(base_meas.blocks, cand_meas.blocks, policy)
     return {**d, "verdict": "accepted" if d["verdict"] == "improved" else d["verdict"]}

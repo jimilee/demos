@@ -1,11 +1,15 @@
 """Experiment controller (plan §11). Vendor-neutral: talks only to the adapter bundle.
 
-Modes
-  prepare   no admissible E2E measurement possible (no device, host/mock backend,
-            or backend without an E2E runner). Candidates climb the evidence
+Modes (derived from declared backend traits, never from backend names)
+  prepare   the backend cannot produce acceptance evidence (outputs not computed on a
+            device, or timings not device-tier E2E). Candidates climb the evidence
             ladder as far as this environment allows; nothing is accepted.
-  device    device-kind backend with E2E capability and a reachable device.
+  device    manifest.acceptance_capable: device outputs + device-tier E2E timings.
             Paired ABBA blocks, evaluator decision, best update or restore.
+
+Measurement in prepare mode happens only when the experiment config sets
+`informational_measurement: true` (e.g. structure checks with synthetic timings).
+Such numbers are recorded but can never be admissible.
 """
 from __future__ import annotations
 
@@ -40,14 +44,19 @@ class Controller:
     # ------------------------------------------------------------------
     @property
     def mode(self):
+        return "device" if self.b.manifest.acceptance_capable else "prepare"
+
+    @property
+    def _measure(self) -> bool:
         m = self.b.manifest
-        if self.b.kind != "device" or m.measurement.e2e not in ("supported", "experimental"):
-            return "prepare"
-        return "device"
+        return m.measures_e2e and (self.mode == "device" or bool(self.cfg.get("informational_measurement", False)))
+
+    @property
+    def _outputs_on_device(self) -> bool:
+        return self.b.manifest.execution.executes_on == "device"
 
     def _record(self, cand, state, stages, art=None, failure=None, detail="", corr=None, meas=None, decision=None):
         eff = dict(art.effective_config) if art else {}
-        eff["_backend_kind"] = self.b.kind
         rec = CandidateRecord(
             experiment_id=self.eid, candidate=asdict(cand), backend_id=self.b.backend_id,
             workload_id=self.w.workload_id, contract_id=self.c.contract_id, state=state.value if isinstance(state, State) else state,
@@ -56,7 +65,7 @@ class Controller:
             effective_config=eff, ir_hashes=dict(art.ir_hashes) if art else {},
             artifact_hashes=dict(art.artifact_hashes) if art else {}, correctness=corr or {},
             measurement=asdict(meas) if isinstance(meas, Measurement) else meas, decision=decision,
-            toolchain_lock=self.lock,
+            toolchain_lock=self.lock, backend_traits=self.b.manifest.traits(),
             cache_key=cache_key(backend=self.b.backend_id, compiler=self.b.manifest.compiler_profile,
                                 runtime=self.b.manifest.runtime_profile, ir=art.ir_hashes if art else None,
                                 cfg=eff, toolchain=self.lock, arch=self.b.manifest.device_profile.get("arch"),
@@ -96,7 +105,7 @@ class Controller:
             state = State.IR_VALID
             stages.append(StageRecord("ir_verify", Evidence.PASSED.value, "MLIR verifier (structural only)"))
         if self.best_record and art.ir_hashes and art.ir_hashes == self.best_record.ir_hashes and \
-                art.effective_config == {k: v for k, v in self.best_record.effective_config.items() if k != "_backend_kind"}:
+                art.effective_config == self.best_record.effective_config:
             stages.append(StageRecord("dedupe", Evidence.PASSED.value, "IR and effective config identical to best: no change possible"))
             return self._record(cand, state, stages, art, detail="identical to best")[0], art, None
         if art.pending:  # environment limit, not a candidate failure: later evidence stays pending
@@ -104,7 +113,7 @@ class Controller:
             if baseline:
                 self.best_artifact = art
             return self._record(cand, state, stages, art, detail=art.pending)[0], art, None
-        if art.target_compiled and self.b.kind == "device":
+        if art.target_compiled and self.b.manifest.execution.target_codegen:
             state = State.TARGET_COMPILED
         if art.twin is not None:  # host build of the exact target-bound IR: semantics check, not device evidence
             import torch
@@ -133,16 +142,16 @@ class Controller:
             return self._record(cand, State.REJECTED, stages, art, Failure(e.failure), str(e))[0], art, None
         splits = tuple(self.cfg.get("correctness_splits", ["tune", "stress"]))
         corr = self._correctness(session, splits)
-        cstage = "device_correctness" if self.b.kind == "device" else "host_correctness"
+        cstage = "device_correctness" if self._outputs_on_device else "host_correctness"
         if not corr["ok"]:
             runtime_err = any(r.get("reason", "").startswith(("RuntimeFailure", "BackendError")) for r in corr["per_input"])
             stages.append(StageRecord(cstage, Evidence.FAILED.value, str(corr["failed_inputs"][:3])))
             fail = Failure.RUNTIME_FAILURE if runtime_err else Failure.CORRECTNESS_FAILURE
             return self._record(cand, State.REJECTED, stages, art, fail, str(corr["failed_inputs"][:3]), _slim(corr))[0], art, None
-        state = State.DEVICE_CORRECT if self.b.kind == "device" else State.HOST_CORRECT
+        state = State.DEVICE_CORRECT if self._outputs_on_device else State.HOST_CORRECT
         stages.append(StageRecord(cstage, Evidence.PASSED.value, f"max_abs_err={corr['max_abs_err']:.3g} on {corr['n_inputs']} inputs"))
-        if self.b.kind != "device":
-            stages.append(StageRecord("target_compile", Evidence.PENDING.value, f"{self.b.kind} backend"))
+        if not self.b.manifest.execution.target_codegen:
+            stages.append(StageRecord("target_compile", Evidence.PENDING.value, "backend has no target codegen"))
         return self._record_with(cand, state, stages, art, corr), art, session
 
     def _record_with(self, cand, state, stages, art, corr):
@@ -162,7 +171,7 @@ class Controller:
             return rec
         cand, state, stages, art, corr = self._pending
         meas = None
-        if self.mode == "device" or self.b.kind == "mock":
+        if self._measure:
             try:
                 meas = self.b.profiler.measure_e2e(self.b.runtime, session, self._perf_inputs(), self.policy)
                 if meas.is_real_device:
@@ -197,11 +206,11 @@ class Controller:
         cand, state, stages, art, corr = self._pending
         meas_b = meas_c = None
         decision = None
-        if self.mode == "device" or self.b.kind == "mock":
+        if self._measure:
             try:
                 meas_b, meas_c = self._paired(self.best_session, session)
-                device_ok = state == State.DEVICE_CORRECT
-                decision = evaluator.judge(meas_b, meas_c, self.b.kind, self.policy, device_correct=device_ok or self.b.kind == "mock")
+                decision = evaluator.judge(meas_b, meas_c, self.b.manifest, self.policy,
+                                           device_correct=state == State.DEVICE_CORRECT)
                 if meas_c.is_real_device and meas_b.is_real_device:
                     state = State.E2E_MEASURED
                 stages.append(StageRecord("e2e", Evidence.PASSED.value if meas_c.is_real_device else Evidence.PENDING.value,
@@ -215,7 +224,7 @@ class Controller:
         if accepted:
             state = State.ACCEPTED
         rec, path = self._record(cand, state, stages, art, corr=_slim(corr),
-                                 meas={"base": asdict(meas_b), "cand": asdict(meas_c), **asdict(meas_c)} if meas_c else None,
+                                 meas={"base": asdict(meas_b), "cand": asdict(meas_c)} if meas_c else None,
                                  decision=decision)
         if accepted:
             prev = self.store.get_best(self.key) or {"chain": []}

@@ -334,7 +334,7 @@ def cmd_run(a):
     pol = stats.Policy(**cfg.get("policy", {}))
     ctl = Controller(b, w, C.get(cfg["evaluation_contract_id"]), Store(ROOT / cfg.get("store", "store")), pol, cfg,
                      corpus=corpus, toolchain_lock=toolchain_lock())
-    print(f"experiment {ctl.eid}: backend={b.backend_id} kind={b.kind} mode={ctl.mode}")
+    print(f"experiment {ctl.eid}: backend={b.backend_id} traits={b.traits} mode={ctl.mode}")
     r = ctl.run_baseline()
     print(f"  baseline -> {r.state} {r.failure or ''} {r.failure_detail[:90]}")
     for cd in cfg.get("candidates", []):

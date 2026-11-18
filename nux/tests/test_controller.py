@@ -15,9 +15,9 @@ from nux.workloads import get
 POL = stats.Policy(warmup=1, pairs=4, requests_per_block=4)
 
 
-def ctl(bid, root, bundle=None):
+def ctl(bid, root, bundle=None, informational=True):
     return Controller(bundle or registry.resolve({"backend_id": bid}), get("toy-mlp"), contract.get("toy-fp32-v0"),
-                      Store(root), POL, {"backend_id": bid})
+                      Store(root), POL, {"backend_id": bid, "informational_measurement": informational})
 
 
 def test_two_mocks_same_controller(tmp_path):
@@ -44,7 +44,7 @@ def test_two_mocks_same_controller(tmp_path):
 
 
 def test_host_reference_backend_on_toy(tmp_path):
-    c = ctl("host-linalg-jit", tmp_path)
+    c = ctl("host-linalg-jit", tmp_path, informational=False)
     assert c.run_baseline().state == "host_correct"
     r = c.run_candidate(Candidate("recipe.fuse-elementwise", "ir_recipe"))
     assert r.state == "host_correct" and r.decision["verdict"] == "pending"
@@ -75,8 +75,11 @@ class _DeviceProfiler(mock.Profiler):
 
 
 def _fixture_bundle():
+    from nux.capability import ExecutionCaps
+
     m = mock.mlir_manifest()
-    m.kind = "device"
+    m.execution = ExecutionCaps(target_codegen=False, executes_on="device")
+    m.measurement.tier = "device"
     m.backend_id = "test-device-fixture"
     b = mock.mlir_bundle({})
     return AdapterBundle(m, mock.Compiler("test-device-fixture"), mock.Runtime("test-device-fixture", None), _DeviceProfiler())
@@ -95,3 +98,11 @@ def test_acceptance_and_restore_path_with_device_fixture(tmp_path):
     assert [x["params"]["tile"] for x in best["chain"]] == [32]
     art = c.restore_best()
     assert art.payload["params"]["tile"] == 32
+
+
+def test_no_measurement_without_policy_in_prepare_mode(tmp_path):
+    c = ctl("mock-mlir", tmp_path, informational=False)
+    c.run_baseline()
+    r = c.run_candidate(Candidate("mock.tile", "config", {"tile": 32, "synthetic_speedup": "2.0"}))
+    assert r.measurement is None and r.decision["verdict"] == "pending"
+    assert r.backend_traits["measurement_tier"] == "synthetic" and not r.backend_traits["acceptance_capable"]

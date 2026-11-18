@@ -1,0 +1,322 @@
+{
+  "experiment_id": "20261118-045332-e781cf",
+  "config": {
+    "workload_id": "deit-tiny",
+    "evaluation_contract_id": "deit-tiny-fp32-logits-v0",
+    "device_profile": "none",
+    "correctness_splits": [
+      "tune",
+      "stress"
+    ],
+    "corpus_limit": {
+      "tune": 2,
+      "stress": 2,
+      "holdout": 0
+    },
+    "budget": {
+      "max_candidates": 20,
+      "max_consecutive_failures": 5
+    },
+    "store": "store",
+    "policy": {
+      "warmup": 20,
+      "pairs": 10,
+      "requests_per_block": 20
+    },
+    "backend_id": "llvm-aot-hexagon",
+    "compiler_profile": "",
+    "runtime_profile": "",
+    "candidates": [
+      {
+        "action_id": "recipe.fold-unit-extent-dims",
+        "kind": "ir_recipe",
+        "hypothesis": "dropping 208 unit-dim reshapes removes reshape/copy materialization",
+        "expected_savings": "reshape/copy ops",
+        "possible_costs": "more ops (2209->2791); target lowering may differ"
+      },
+      {
+        "action_id": "recipe.fuse-elementwise",
+        "kind": "ir_recipe",
+        "hypothesis": "elementwise fusion removes intermediate tensors (2209->2051 ops)",
+        "expected_savings": "materialization between elementwise ops",
+        "possible_costs": "creates rank-5 reshapes on attention scores (see reproducers); register pressure"
+      },
+      {
+        "action_id": "llc.opt",
+        "kind": "config",
+        "params": {
+          "opt": "-O3"
+        },
+        "hypothesis": "llc -O3 for the Hexagon object"
+      }
+    ]
+  },
+  "lock": {
+    "toolchain": {
+      "python": "3.13.18",
+      "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+      "torch": "2.15.0",
+      "torch-mlir": "20261101",
+      "transformers": "5.23.0",
+      "huggingface-hub": "2.4.0",
+      "numpy": "2.5.5",
+      "pillow": "13.0.0",
+      "hexagon": {
+        "toolchain_importable": false,
+        "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+        "HEXAGON_ARCH_VERSION": null,
+        "HEXAGON_SDK_ROOT": null,
+        "HEXAGON_TOOLS": null,
+        "HEXKL_ROOT": null,
+        "adb": null,
+        "device_state": null,
+        "source_rev_assumed": "9ec15e8"
+      }
+    },
+    "workload": {
+      "workload_id": "deit-tiny",
+      "model_id": "facebook/deit-tiny-patch16-224",
+      "revision": "b3428f18dcc7b543470d07f14b4a4157815d1880",
+      "files": {
+        "pytorch_model.bin": "e1a51b0c81ff812e079d2189352747947879fee56429e4480064a6695cb34b2c",
+        "config.json": "e8786a68c993c04b8721c4d379e4f9de6a9564fba5987704dbf8696d53b7972d",
+        "preprocessor_config.json": "90d1ae427c27d2b9dcb01f6a62ba96aa67aac2de1697c59cd212055b5035c4a2"
+      },
+      "framework": {
+        "torch": "2.15.0+cu132",
+        "transformers": "5.23.0",
+        "class": "ViTForImageClassification",
+        "attn_implementation": "sdpa",
+        "processor": "ViTImageProcessorPil",
+        "processor_backend": "pil"
+      },
+      "load_info": null,
+      "structure": {
+        "num_hidden_layers": 12,
+        "hidden_size": 192,
+        "num_attention_heads": 3,
+        "patch_size": 16,
+        "image_size": 224,
+        "num_labels": 1000,
+        "tokens": 197,
+        "head_dim": 64
+      },
+      "meta": {
+        "dtype": "float32",
+        "inputs": [
+          [
+            1,
+            3,
+            224,
+            224
+          ]
+        ],
+        "outputs": [
+          [
+            1,
+            1000
+          ]
+        ],
+        "layout": "NCHW",
+        "batch": 1,
+        "quantized": false,
+        "num_hidden_layers": 12,
+        "hidden_size": 192,
+        "num_attention_heads": 3,
+        "patch_size": 16,
+        "image_size": 224,
+        "num_labels": 1000,
+        "tokens": 197,
+        "head_dim": 64
+      },
+      "preprocessor_config": {
+        "do_normalize": true,
+        "do_resize": true,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "size": 224
+      }
+    },
+    "capabilities": {
+      "backend_id": "llvm-aot-hexagon",
+      "version": "llc-18.1.3",
+      "compiler_profile": "upstream-llvm-18.1.3/hexagon-v73",
+      "runtime_profile": "none (needs Hexagon SDK runtime)",
+      "profiler_profile": "none",
+      "input_stages": [
+        "linalg-on-tensors"
+      ],
+      "dtypes": [
+        "float32"
+      ],
+      "actions": [
+        {
+          "action_id": "recipe.canonicalize-cse",
+          "kind": "ir_recipe",
+          "description": "folding/canonical forms + common subexpression elimination",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass; codegen by upstream LLVM Hexagon backend",
+          "tags": [
+            "cleanup"
+          ]
+        },
+        {
+          "action_id": "recipe.fold-unit-extent-dims",
+          "kind": "ir_recipe",
+          "description": "DropUnitDims: remove size-1 loop dims of linalg ops via collapse/expand reshapes; element order unchanged",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass; codegen by upstream LLVM Hexagon backend",
+          "tags": [
+            "layout",
+            "reshape"
+          ]
+        },
+        {
+          "action_id": "recipe.fold-unit-extent-dims-slices",
+          "kind": "ir_recipe",
+          "description": "DropUnitDims using rank-reducing extract/insert_slice instead of reshapes",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass; codegen by upstream LLVM Hexagon backend",
+          "tags": [
+            "layout",
+            "reshape"
+          ]
+        },
+        {
+          "action_id": "recipe.fuse-elementwise",
+          "kind": "ir_recipe",
+          "description": "producer/consumer fusion of elementwise linalg.generic ops (removes materialization)",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass; codegen by upstream LLVM Hexagon backend",
+          "tags": [
+            "fusion",
+            "memory"
+          ]
+        },
+        {
+          "action_id": "recipe.generalize-named-ops",
+          "kind": "ir_recipe",
+          "description": "rewrite named ops (matmul, transpose, ...) as linalg.generic",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass; codegen by upstream LLVM Hexagon backend",
+          "tags": [
+            "codegen"
+          ]
+        },
+        {
+          "action_id": "llc.opt",
+          "kind": "config",
+          "description": "llc optimization level",
+          "stage": "aot",
+          "params": [
+            {
+              "name": "opt",
+              "type": "enum",
+              "choices": [
+                "-O0",
+                "-O1",
+                "-O2",
+                "-O3"
+              ],
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "",
+          "tags": []
+        }
+      ],
+      "measurement": {
+        "e2e": "unavailable",
+        "tier": "none",
+        "e2e_boundary": "codegen-only backend",
+        "units": "us",
+        "op_profile": "unavailable",
+        "counters": [],
+        "notes": ""
+      },
+      "execution": {
+        "target_codegen": true,
+        "executes_on": "none"
+      },
+      "compatible_runtimes": [
+        "none (needs Hexagon SDK runtime)"
+      ],
+      "device_profile": {
+        "arch": "73"
+      },
+      "environment": {
+        "llc": "/usr/bin/llc",
+        "llc_version": "18.1.3",
+        "hexagon_target": true,
+        "runtime_features": []
+      },
+      "notes": [
+        "system llc 18.1.3; hexagon target present",
+        "upstream LLVM codegen, not the Hexagon-MLIR pipeline; LLVM 18 supports up to hexagonv73"
+      ]
+    },
+    "policy": {
+      "policy_id": "e2e-paired-v0",
+      "warmup": 20,
+      "pairs": 10,
+      "requests_per_block": 20,
+      "min_median_gain": 0.03,
+      "ci_level": 0.95,
+      "ci_lower_gt": 1.0,
+      "max_p95_regression": 0.02,
+      "max_regression_shape": 0.02,
+      "bootstrap": 2000,
+      "seed": 0
+    }
+  }
+}

@@ -30,7 +30,7 @@ import torch
 from .. import mlir_host as H
 from ..adapters import (AdapterBundle, Artifact, CompilerAdapter, CompileFailure, DeviceUnavailable, ProfilerAdapter,
                         RuntimeAdapter, RuntimeFailure, Unsupported)
-from ..capability import ActionSpec, CapabilityManifest, MeasurementCaps, ParamSpec
+from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
 from ..registry import register
 
 BACKEND_ID = "hexagon-mlir"
@@ -116,12 +116,13 @@ def manifest():
                               support="unavailable", requires_runtime=["kernel-binding"], evidence="ABI integration test not done",
                               tags=["kernel"]))
     return CapabilityManifest(
-        backend_id=BACKEND_ID, kind="device", version=f"hexagon-mlir@{SOURCE_REV}",
+        backend_id=BACKEND_ID, version=f"hexagon-mlir@{SOURCE_REV}",
         compiler_profile="hexagon-mlir/torch-mlir-linalg", runtime_profile="hexagon-standalone-launcher",
         profiler_profile="none", input_stages=["linalg-on-tensors"], dtypes=["float32", "float16"],
         actions=actions, compatible_runtimes=["hexagon-standalone-launcher"],
+        execution=ExecutionCaps(target_codegen=True, executes_on="device"),
         measurement=MeasurementCaps(
-            e2e="unavailable", e2e_boundary="(none yet) plan §9.1 request boundary needs a session-reusing device runner",
+            e2e="unavailable", tier="device", e2e_boundary="(none yet) plan §9.1 request boundary needs a session-reusing device runner",
             notes="launcher Perf: field is an in-process DSP loop average, not the plan's E2E metric"),
         device_profile={"arch": env.get("HEXAGON_ARCH_VERSION"), "serial_set": bool(env.get("ANDROID_SERIAL")),
                         "state": env.get("device_state")},

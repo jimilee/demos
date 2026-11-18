@@ -15,7 +15,7 @@ import torch
 
 from .. import mlir_host as H
 from ..adapters import AdapterBundle, Artifact, CompilerAdapter, CompileFailure, ProfilerAdapter, RuntimeAdapter, Unsupported
-from ..capability import ActionSpec, CapabilityManifest, MeasurementCaps, ParamSpec
+from ..capability import ActionSpec, CapabilityManifest, ExecutionCaps, MeasurementCaps, ParamSpec
 from ..registry import register
 from ..schema import Measurement
 
@@ -44,11 +44,12 @@ def manifest():
                    support="unavailable", evidence="host reference path has no kernel binding ABI"),
     ]
     return CapabilityManifest(
-        backend_id=BACKEND_ID, kind="host_reference", version=f"torch-mlir-{v}",
+        backend_id=BACKEND_ID, version=f"torch-mlir-{v}",
         compiler_profile=f"torch-mlir-{v}/linalg-on-tensors", runtime_profile="mlir-execution-engine-host",
         profiler_profile="host-wallclock", input_stages=["pytorch", "linalg-on-tensors"], dtypes=["float32"],
         actions=actions, compatible_runtimes=["mlir-execution-engine-host"],
-        measurement=MeasurementCaps(e2e="supported", e2e_boundary="host CPU: JIT invoke of the whole model (NOT an NPU)",
+        execution=ExecutionCaps(target_codegen=False, executes_on="host"),
+        measurement=MeasurementCaps(e2e="supported", tier="host", e2e_boundary="host CPU: JIT invoke of the whole model (NOT an NPU)",
                                     units="ms", notes="host timings are reference-only; never acceptance evidence"),
         environment={"runtime_features": ["host-jit"]})
 
