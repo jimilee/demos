@@ -1,7 +1,0 @@
-{
-  "record": "experiments/20261118-012441-b726fa/candidates/c7db5b495d0f.json",
-  "chain": [],
-  "state": "ir_valid",
-  "mode": "prepare",
-  "note": "baseline stopped at ir_valid: toolchain_unavailable: hexagon backend not importable (ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend')"
-}

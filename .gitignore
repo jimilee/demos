@@ -3,4 +3,4 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-npu-autokernel/.cache/
+nux/.cache/

@@ -1,7 +1,0 @@
-{
-  "record": "/home/user/demos/npu-autokernel/store/experiments/20261118-012230-f094c5/candidates/c7db5b495d0f.json",
-  "chain": [],
-  "state": "host_correct",
-  "mode": "prepare",
-  "note": "baseline is the best-known artifact until a device-accepted candidate exists"
-}

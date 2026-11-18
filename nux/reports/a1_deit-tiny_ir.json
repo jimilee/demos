@@ -1,0 +1,280 @@
+{
+  "workload": "deit-tiny",
+  "stage": "linalg-on-tensors",
+  "export_s": 12.17,
+  "verify": [
+    true,
+    "verifier passed"
+  ],
+  "stats": {
+    "sha256": "cc093913c5545587975b2a3ae0cbf02a47e0f2a78e2ccd32b38564bafed0b6e8",
+    "stage": "linalg-on-tensors",
+    "n_ops": 2209,
+    "ops": {
+      "linalg.generic": 719,
+      "arith.addf": 259,
+      "arith.constant": 216,
+      "arith.mulf": 123,
+      "linalg.transpose": 122,
+      "tensor.expand_shape": 109,
+      "tensor.collapse_shape": 99,
+      "arith.divf": 99,
+      "arith.truncf": 74,
+      "linalg.matmul": 73,
+      "arith.subf": 62,
+      "arith.extf": 37,
+      "tensor.empty": 29,
+      "math.rsqrt": 25,
+      "arith.select": 25,
+      "linalg.batch_matmul": 24,
+      "arith.cmpf": 24,
+      "linalg.index": 13,
+      "arith.index_cast": 13,
+      "arith.maximumf": 12,
+      "math.exp": 12,
+      "arith.andi": 12,
+      "math.erf": 12,
+      "linalg.fill": 11,
+      "linalg.broadcast": 1,
+      "linalg.conv_": 1,
+      "tensor.concat": 1,
+      "arith.cmpi": 1,
+      "tensor.extract_slice": 1
+    },
+    "copies": 0,
+    "reshape_signatures": 16,
+    "max_reshape_rank": 4,
+    "unit_dim_reshapes": 208
+  },
+  "ir_file": ".cache/ir/deit-tiny.linalg.mlirbc (not committed; sha256 cc093913c5545587975b2a3ae0cbf02a47e0f2a78e2ccd32b38564bafed0b6e8)",
+  "rank5_reshapes_in_export": 0,
+  "recipes": {
+    "canonicalize-cse": {
+      "applicable": true,
+      "reason": "ok",
+      "changed": false,
+      "verify": [
+        true,
+        "verifier passed"
+      ],
+      "stats": {
+        "sha256": "cc093913c5545587975b2a3ae0cbf02a47e0f2a78e2ccd32b38564bafed0b6e8",
+        "stage": "linalg-on-tensors",
+        "n_ops": 2209,
+        "copies": 0,
+        "reshape_signatures": 16,
+        "max_reshape_rank": 4,
+        "unit_dim_reshapes": 208
+      },
+      "rank5_reshapes": 0
+    },
+    "fold-unit-extent-dims": {
+      "applicable": true,
+      "reason": "ok",
+      "changed": true,
+      "verify": [
+        true,
+        "verifier passed"
+      ],
+      "stats": {
+        "sha256": "5ed49cab0a671f0d6a6949a4e752b44623fe7fcf77b02b5259338cc29b90849e",
+        "stage": "linalg-on-tensors",
+        "n_ops": 2791,
+        "copies": 0,
+        "reshape_signatures": 11,
+        "max_reshape_rank": 4,
+        "unit_dim_reshapes": 103
+      },
+      "rank5_reshapes": 0
+    },
+    "fold-unit-extent-dims-slices": {
+      "applicable": true,
+      "reason": "ok",
+      "changed": true,
+      "verify": [
+        true,
+        "verifier passed"
+      ],
+      "stats": {
+        "sha256": "9a333363ef44ce3728540aa283b06d9f311c47d428d3ed7841246ca0af917a9b",
+        "stage": "linalg-on-tensors",
+        "n_ops": 2965,
+        "copies": 87,
+        "reshape_signatures": 16,
+        "max_reshape_rank": 4,
+        "unit_dim_reshapes": 208
+      },
+      "rank5_reshapes": 0
+    },
+    "fuse-elementwise": {
+      "applicable": true,
+      "reason": "ok",
+      "changed": true,
+      "verify": [
+        true,
+        "verifier passed"
+      ],
+      "stats": {
+        "sha256": "9680e94e05b6d45e2dbd3fa5fc96d5a153ef4aef2f5c4bae64364d686afa6b61",
+        "stage": "linalg-on-tensors",
+        "n_ops": 2051,
+        "copies": 0,
+        "reshape_signatures": 15,
+        "max_reshape_rank": 5,
+        "unit_dim_reshapes": 125
+      },
+      "rank5_reshapes": 2
+    },
+    "generalize-named-ops": {
+      "applicable": true,
+      "reason": "ok",
+      "changed": true,
+      "verify": [
+        true,
+        "verifier passed"
+      ],
+      "stats": {
+        "sha256": "a1d815cd68caedac8894ad37faf2d62baaf90f0f9e0eb0110cd48185bf85a6b8",
+        "stage": "linalg-on-tensors",
+        "n_ops": 2405,
+        "copies": 0,
+        "reshape_signatures": 16,
+        "max_reshape_rank": 4,
+        "unit_dim_reshapes": 208
+      },
+      "rank5_reshapes": 0
+    }
+  },
+  "unit_dim_reproducers_written": 8,
+  "host_execution": {
+    "baseline": {
+      "lower_s": 0.83,
+      "jit_s": 16.67,
+      "summary": {
+        "ok": true,
+        "n_inputs": 3,
+        "n_failed": 0,
+        "max_abs_err": 1.2636184692382812e-05,
+        "failed_inputs": [],
+        "task_accuracy": "pending"
+      },
+      "per_input": [
+        {
+          "input_id": "tune_blobs_1",
+          "ok": true,
+          "max_abs_err": 9.119510650634766e-06,
+          "mean_abs_err": 2.055324614048004e-06,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 11.08
+        },
+        {
+          "input_id": "tune_blobs_2",
+          "ok": true,
+          "max_abs_err": 1.2636184692382812e-05,
+          "mean_abs_err": 1.6635581851005554e-06,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 0.92
+        },
+        {
+          "input_id": "stress_white_0",
+          "ok": true,
+          "max_abs_err": 2.950429916381836e-06,
+          "mean_abs_err": 6.980448961257934e-07,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 0.98
+        }
+      ],
+      "total_s": 30.6,
+      "note": "host CPU loops lowering for correctness only; timings are not performance data"
+    },
+    "fold-unit-extent-dims": {
+      "lower_s": 0.57,
+      "jit_s": 17.76,
+      "summary": {
+        "ok": true,
+        "n_inputs": 3,
+        "n_failed": 0,
+        "max_abs_err": 1.2636184692382812e-05,
+        "failed_inputs": [],
+        "task_accuracy": "pending"
+      },
+      "per_input": [
+        {
+          "input_id": "tune_blobs_1",
+          "ok": true,
+          "max_abs_err": 9.119510650634766e-06,
+          "mean_abs_err": 2.055324614048004e-06,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 11.19
+        },
+        {
+          "input_id": "tune_blobs_2",
+          "ok": true,
+          "max_abs_err": 1.2636184692382812e-05,
+          "mean_abs_err": 1.6635581851005554e-06,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 1.0
+        },
+        {
+          "input_id": "stress_white_0",
+          "ok": true,
+          "max_abs_err": 2.950429916381836e-06,
+          "mean_abs_err": 6.980448961257934e-07,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 1.02
+        }
+      ],
+      "total_s": 31.7,
+      "note": "host CPU loops lowering for correctness only; timings are not performance data"
+    },
+    "fuse-elementwise": {
+      "lower_s": 0.4,
+      "jit_s": 10.88,
+      "summary": {
+        "ok": true,
+        "n_inputs": 3,
+        "n_failed": 0,
+        "max_abs_err": 1.2636184692382812e-05,
+        "failed_inputs": [],
+        "task_accuracy": "pending"
+      },
+      "per_input": [
+        {
+          "input_id": "tune_blobs_1",
+          "ok": true,
+          "max_abs_err": 9.119510650634766e-06,
+          "mean_abs_err": 2.055324614048004e-06,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 10.65
+        },
+        {
+          "input_id": "tune_blobs_2",
+          "ok": true,
+          "max_abs_err": 1.2636184692382812e-05,
+          "mean_abs_err": 1.6635581851005554e-06,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 5.34
+        },
+        {
+          "input_id": "stress_white_0",
+          "ok": true,
+          "max_abs_err": 2.950429916381836e-06,
+          "mean_abs_err": 6.980448961257934e-07,
+          "top1_match": true,
+          "top5_overlap": 1.0,
+          "run_s": 4.86
+        }
+      ],
+      "total_s": 32.3,
+      "note": "host CPU loops lowering for correctness only; timings are not performance data"
+    }
+  }
+}

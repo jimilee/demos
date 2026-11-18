@@ -1,0 +1,75 @@
+{
+  "workload": "deit-tiny",
+  "backend": "hexagon-mlir",
+  "lock": {
+    "python": "3.13.18",
+    "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+    "torch": "2.15.0",
+    "torch-mlir": "20261101",
+    "transformers": "5.23.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "hexagon": {
+      "toolchain_importable": false,
+      "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+      "HEXAGON_ARCH_VERSION": null,
+      "HEXAGON_SDK_ROOT": null,
+      "HEXAGON_TOOLS": null,
+      "HEXKL_ROOT": null,
+      "adb": null,
+      "device_state": null,
+      "source_rev_assumed": "9ec15e8"
+    }
+  },
+  "levels": [
+    {
+      "level": "layernorm_192",
+      "backend": "hexagon-mlir",
+      "export": {
+        "ok": true,
+        "s": 0.56,
+        "verify": [
+          true,
+          "verifier passed"
+        ],
+        "sha256": "a9440004b7a64a4575ba36c01bbec75b7bfb1865597ada6dc9cc2a9394c3a022",
+        "max_reshape_rank": 0
+      },
+      "target_compile": "pending: toolchain_unavailable: hexagon backend not importable (ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend')",
+      "artifact_hashes": {}
+    },
+    {
+      "level": "encoder_block_0",
+      "backend": "hexagon-mlir",
+      "export": {
+        "ok": true,
+        "s": 0.37,
+        "verify": [
+          true,
+          "verifier passed"
+        ],
+        "sha256": "af318aa87a06fe2587593a6af2d964c297514d103c808c04f4277220188723c4",
+        "max_reshape_rank": 4
+      },
+      "target_compile": "pending: toolchain_unavailable: hexagon backend not importable (ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend')",
+      "artifact_hashes": {}
+    },
+    {
+      "level": "deit_tiny_full",
+      "backend": "hexagon-mlir",
+      "export": {
+        "ok": true,
+        "s": 2.54,
+        "verify": [
+          true,
+          "verifier passed"
+        ],
+        "sha256": "79235b2f468d9efc7df2fe438cb37fabd9ea096732cd6810862068106d216aa7",
+        "max_reshape_rank": 4
+      },
+      "target_compile": "pending: toolchain_unavailable: hexagon backend not importable (ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend')",
+      "artifact_hashes": {}
+    }
+  ]
+}
