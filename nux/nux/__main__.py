@@ -7,6 +7,8 @@
   ir [--host-inputs N]        A1: linalg export, verifier, recipes, host JIT vs eager, reshape reproducers
   smoke --backend B           A2: compile smoke (min op / one block / full model) per backend
   aot [--targets ...]         AOT: host .so (MLIR LLVM) + llc twin x86 + llc Hexagon object, with correctness
+  export-onnx [--id ...]      vendor input artifact: ONNX export validated with onnxruntime
+  import-profile ...          vendor profile (e.g. QNN JSON from qnn-profile-viewer) -> hints -> seed configs
   run --config C              controller: baseline + candidates (prepare mode unless device E2E is admissible)
   status                      best-known state per (backend, workload, contract)
 """
@@ -277,6 +279,38 @@ def cmd_aot(a):
     _w(REPORTS / f"aot_{a.id}.json", rep)
 
 
+def cmd_export_onnx(a):
+    from . import contract as C
+    from . import onnx_export as O
+    from .workloads import get
+
+    w = get(a.id)
+    out = ROOT / ".cache" / "vendor" / f"{a.id}.onnx"
+    info = O.export(w, out)
+    info["validation"] = O.validate(w, out, C.get(a.contract), w.corpus())
+    info["path"] = str(out.relative_to(ROOT)) + " (not committed)"
+    _w(REPORTS / f"vendor_input_{a.id}.json", info)
+    print(f"onnx {info['n_nodes']} nodes sha256={info['sha256'][:16]} validation ok={info['validation']['ok']} "
+          f"max_abs_err={info['validation']['max_abs_err']:.3g}")
+
+
+def cmd_import_profile(a):
+    from .importers import pipeline
+    from .workloads import get
+
+    meta = get(a.id).meta() if a.id else None
+    onnx_path = Path(a.onnx) if a.onnx else (ROOT / ".cache" / "vendor" / f"{a.id}.onnx")
+    s = pipeline.run(a.format, Path(a.file), a.label, a.targets.split(","), onnx_path if onnx_path.exists() else None,
+                     a.build_config, a.converter_args, a.precision, meta)
+    print(f"layers={s['n_layers']} runs={s['summary'].get('runs')} mapping={s['meta']['name_mapping']}")
+    for h in s["hints"]:
+        print(f"  hint {h[0]:24} [{h[1]}] {h[2]}")
+    for t, v in s["seeds"].items():
+        print(f"  seeds for {t}: {v['n_seeds']} candidates ({v['n_skipped']} skipped) -> {v['config']}")
+    for wmsg in s["meta"]["warnings"]:
+        print("  WARNING:", wmsg)
+
+
 def cmd_run(a):
     from . import contract as C
     from . import registry, stats
@@ -331,10 +365,20 @@ def main(argv=None):
     s.add_argument("--contract", default="deit-tiny-fp32-logits-v0")
     s.add_argument("--targets", default="x86_64,hexagon-v73")
     s.add_argument("--inputs", type=int, default=2); s.add_argument("--stress", type=int, default=1)
+    s = sub.add_parser("export-onnx"); s.add_argument("--id", default="deit-tiny")
+    s.add_argument("--contract", default="deit-tiny-fp32-logits-v0")
+    s = sub.add_parser("import-profile")
+    s.add_argument("--format", required=True, help="qnn-json | chrometrace")
+    s.add_argument("--file", required=True); s.add_argument("--label", required=True)
+    s.add_argument("--id", default="deit-tiny"); s.add_argument("--onnx", default=None)
+    s.add_argument("--targets", default="hexagon-mlir,llvm-aot-hexagon")
+    s.add_argument("--build-config", default=None, help="HTP backend config JSON used for the context binary")
+    s.add_argument("--converter-args", default=None, help="qairt-converter arguments used (to detect preserve_io)")
+    s.add_argument("--precision", default="unknown", help="fp16 | int8 | ... (vendor build precision)")
     s = sub.add_parser("run"); s.add_argument("--config", required=True)
     s = sub.add_parser("status"); s.add_argument("--store", default="store")
     a = ap.parse_args(argv)
-    globals()[f"cmd_{a.cmd}"](a)
+    globals()[f"cmd_{a.cmd.replace('-', '_')}"](a)
 
 
 if __name__ == "__main__":

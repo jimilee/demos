@@ -38,6 +38,15 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   ├── mlir_host.py                   # 벤더 중립 MLIR 도구: export, verifier, IR recipe, host LLVM JIT, reshape reproducer
 │   ├── aot.py                         # AOT: MLIR LLVM .o/.so, LLVM IR downgrade, max/min 확장, llc (x86-64 / Hexagon), ctypes
 │   ├── corpus.py                      # 수치·회귀 corpus 생성기 (tune / holdout / stress)
+│   ├── hints.py                       # 벤더 중립 Hint, 프로파일 표 분석, tag 기반 seed 후보 생성
+│   ├── onnx_export.py                 # 벤더 SDK 입력용 ONNX export + onnxruntime 검증
+│   │
+│   ├── importers/                     # 벤더 프로파일 importer (별도 모듈, 공식 도구 출력만 읽음)
+│   │   ├── __init__.py                # importer registry, 정규화된 VendorProfile
+│   │   ├── qnn_json.py                # qnn-profile-viewer + libQnnJsonProfilingReader 출력
+│   │   ├── chrometrace.py             # Chrome Trace JSON (AppBuilder 변환 결과 등)
+│   │   ├── onnx_map.py                # 벤더 op 이름 → 원본 ONNX op 타입 매핑
+│   │   └── pipeline.py                # 프로파일 → hint → backend별 seed config
 │   │
 │   ├── workloads/                     # Workload registry
 │   │   ├── __init__.py                # register / get / Workload 인터페이스
@@ -65,6 +74,8 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   └── deit-tiny.corpus.json          # corpus manifest (id·split·sha256·범위)
 │
 ├── reports/                           # 단계별 보고서 (커밋)
+│   ├── vendor_input_deit-tiny.json    # 벤더 입력 ONNX (489 nodes, sha256, onnxruntime 검증)
+│   ├── vendor_ref/<label>/            # import-profile 결과: profile_normalized · hints · seeds_<backend>.json
 │   ├── env.json                       # toolchain / device lock
 │   ├── a1_deit-tiny_ir.json           # A1: IR 통계, recipe 결과, host JIT 정확성
 │   ├── a2_smoke_hexagon-mlir.json     # A2: LayerNorm / block / 전체 모델 compile smoke
@@ -81,12 +92,13 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       └── candidates/<cand>.json     # 후보별 불변 기록 (stage·IR hash·정확성·측정·판정)
 ├── store_mock/                        # A3 mock 실험 기록 (같은 구조)
 │
-├── tests/                             # pytest (20개)
+├── tests/                             # pytest (26개)
 │   ├── conftest.py
 │   ├── test_core.py                   # capability 필터, 통계, 적격성, 계약, 불변 저장, 벤더 분기 금지
 │   ├── test_controller.py             # mock 2종 + host + hexagon 동일 controller, 채택·복원(테스트 전용 device fixture)
 │   ├── test_mlir_and_deit.py          # recipe 의미 보존(host JIT), reproducer, DeiT strict load·corpus
-│   └── test_aot.py                    # downgrade 규칙, max/min bit-exact, host AOT, Hexagon object + twin, NaN 회귀
+│   ├── test_aot.py                    # downgrade 규칙, max/min bit-exact, host AOT, Hexagon object + twin, NaN 회귀
+│   └── test_importers.py              # QNN JSON / Chrome Trace 파싱, 이름 매핑, hint→seed (합성 fixture)
 │
 └── .cache/                            # (gitignore) HF 가중치 snapshot, linalg bytecode, AOT 산출물(.ll/.o/.so)
 ```
@@ -258,7 +270,8 @@ flowchart LR
 | **AOT** | `python -m nux aot` | DeiT-tiny 전체를 AOT 컴파일. host `.so`(MLIR LLVM, 23.9 MB)와 llc twin x86 모두 max abs err 1.26e-5. **Hexagon v73 ELF object(QUALCOMM DSP6) 23.5 MB** 생성 (`reports/aot_deit-tiny.json`) |
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
-| 테스트 | `python -m pytest -q tests` | 20 passed |
+| 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
+| 테스트 | `python -m pytest -q tests` | 26 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 
@@ -304,6 +317,64 @@ torch-mlir 20261101은 `torch.maximum`/`torch.minimum`을 `cmpf + select`로 low
 **첫 번째 피연산자가 NaN이면 NaN을 버린다** (torch는 NaN을 전파한다). JIT와 AOT 모두에서 똑같이 나타나는 front-end 특성이다.
 DeiT는 이 연산을 쓰지 않으므로(softmax는 NaN을 전파하는 `arith.maximumf` 사용) 결과에는 영향이 없다.
 계획 §10의 NaN/Inf 정책에 따라 `tests/test_aot.py::test_torch_mlir_maximum_nan_divergence_is_tracked`로 추적한다.
+
+## 2.6 벤더 컴파일러 최적화를 초기 레퍼런스로 (`nux/importers/`)
+
+QAIRT 같은 벤더 컴파일러의 결과를 **공식 분석 도구의 출력**으로 가져와,
+"벤더가 무엇을 최적화했는가"를 힌트로 뽑고 nux 탐색의 첫 seed 후보로 쓴다.
+벤더 바이너리(context binary, 런타임)를 열거나 역어셈블하지 않는다.
+
+```mermaid
+flowchart LR
+    A["nux export-onnx<br/>DeiT ONNX (검증됨)"] --> B["사용자 PC: QAIRT SDK + 단말<br/>context binary 생성 · 프로파일<br/>(QAI AppBuilder 공식 절차)"]
+    B --> C["프로파일 파일<br/>QNN JSON / Chrome Trace"]
+    C --> D["nux import-profile<br/>importers/*"]
+    D --> E["hints.json<br/>hotspot · fusion · layout · placement · memory"]
+    E --> F["seeds_hexagon-mlir.json<br/>seeds_llvm-aot-hexagon.json"]
+    F --> G["nux run --config ...<br/>(일반 증거 사다리로 검증)"]
+```
+
+### 사용 방법
+
+1. **벤더 입력 만들기 (이 저장소)**
+   ```bash
+   python -m nux export-onnx      # .cache/vendor/deit-tiny.onnx, reports/vendor_input_deit-tiny.json
+   ```
+   ONNX는 489 nodes이고, onnxruntime으로 corpus 13개 입력에서 eager 대비 max abs err 1.0e-5다.
+2. **사용자 PC에서 QAIRT로 컴파일·프로파일**
+   [qualcomm/qai-appbuilder](https://github.com/qualcomm/qai-appbuilder)의 공식 문서를 따른다.
+   * `tools/skills/qai-runner-skill/references/host_context_binary_gen.md`: context binary 생성, HTP config(`vtcm_mb`, `O`)
+   * `tools/skills/qai-runner-skill/references/profiling.md`: detailed profiling 후 `qnn-profile-viewer`로 변환.
+     JSON reader 출력을 nux에 넣는다.
+   * 지연시간 측정은 profiling을 끈 실행으로 따로 한다 (AppBuilder `optimization.md`의 정책과 같음).
+3. **가져오기**
+   ```bash
+   python -m nux import-profile --format qnn-json --file profile_json.json \
+       --label qairt-<버전>-<단말> --precision fp16 \
+       --build-config htp_config.json --converter-args "<사용한 qairt-converter 인자>" \
+       --targets hexagon-mlir,llvm-aot-hexagon
+   python -m nux run --config reports/vendor_ref/<label>/seeds_hexagon-mlir.json
+   ```
+
+### 추출하는 힌트
+
+| category | 근거 | 연결되는 action tag |
+|---|---|---|
+| hotspot | op class별 시간 비율 (≥5%) | matmul → `library_matmul`·`tiling`·`threading`, norm·softmax·gelu → `fusion`·`kernel` 등 |
+| fusion | 원본 ONNX 대비 벤더가 실행한 op 수 감소 (elementwise·gelu·norm·softmax) | `fusion` |
+| layout | Transpose·Reshape 등 layout op 감소 | `layout`·`reshape` |
+| placement | NPU 밖에서 실행된 op | `partition` |
+| precision | 변환(convert/cast/quantize) op 존재 | `precision` (fp32 계약에서는 차단됨) |
+| memory | build config의 `vtcm_mb`·`O`, load·peak memory | `memory`·`tiling` |
+
+* seed 후보는 대상 backend의 capability로 필터링한다. 예: HexKL은 fp32 DeiT에서 차단되고, fp16 변환은 계약상 불가.
+  각 후보는 `hypothesis`에 출처 hint id와 관찰 내용을 남긴다.
+* HTP는 fp32를 실행하지 않으므로 벤더 프로파일은 보통 **fp16(또는 int8) 결과**다.
+  힌트로만 쓰고, fp32 baseline과 성능을 섞어 비교하지 않는다 (계획 §13).
+* importer는 실제 파일에서 찾은 key(`found_keys`)와 경고를 기록한다.
+  첫 실측 파일로 포맷 가정을 확인할 것. 테스트 fixture는 문서화된 구조를 따른 **합성 데이터**다.
+* QNN JSON 구조는 Qualcomm의 오픈 소스(BSD-3-Clause) QAI AppBuilder 스크립트
+  `convert_qnn_to_trace.py`가 사용하는 형식을 따랐다.
 
 ## 3. 재현
 

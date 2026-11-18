@@ -1,0 +1,137 @@
+{
+  "path": ".cache/vendor/deit-tiny.onnx (not committed)",
+  "sha256": "437a1d03cf53bcff6771df6f8c3a9f76b0647b54fabfb461e3a7bb586627679e",
+  "bytes": 24000578,
+  "opset": 18,
+  "export_s": 4.0,
+  "n_nodes": 489,
+  "op_types": {
+    "Add": 121,
+    "MatMul": 96,
+    "Reshape": 73,
+    "Transpose": 61,
+    "Mul": 48,
+    "LayerNormalization": 25,
+    "Where": 13,
+    "Softmax": 12,
+    "IsNaN": 12,
+    "Div": 12,
+    "Erf": 12,
+    "Conv": 1,
+    "Concat": 1,
+    "Gather": 1,
+    "Gemm": 1
+  },
+  "inputs": [
+    [
+      "pixel_values",
+      [
+        1,
+        3,
+        224,
+        224
+      ]
+    ]
+  ],
+  "torch": "2.15.0+cu132",
+  "onnx": "1.23.2",
+  "validation": {
+    "ok": true,
+    "max_abs_err": 1.0013580322265625e-05,
+    "n_inputs": 13,
+    "runtime": "onnxruntime 1.32.0 CPUExecutionProvider",
+    "per_input": [
+      {
+        "input_id": "tune_blobs_1",
+        "ok": true,
+        "max_abs_err": 6.258487701416016e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "tune_blobs_2",
+        "ok": true,
+        "max_abs_err": 1.0013580322265625e-05,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "tune_gradient_3",
+        "ok": true,
+        "max_abs_err": 5.0067901611328125e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "tune_texture_4",
+        "ok": true,
+        "max_abs_err": 3.5762786865234375e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "tune_blobs_5",
+        "ok": true,
+        "max_abs_err": 6.854534149169922e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "tune_texture_6",
+        "ok": true,
+        "max_abs_err": 5.7220458984375e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "stress_white_0",
+        "ok": true,
+        "max_abs_err": 2.3245811462402344e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "stress_black_0",
+        "ok": true,
+        "max_abs_err": 3.3080577850341797e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "stress_checker1px_0",
+        "ok": true,
+        "max_abs_err": 2.1457672119140625e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "stress_uniform_noise_201",
+        "ok": true,
+        "max_abs_err": 5.7220458984375e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "stress_const_zero",
+        "ok": true,
+        "max_abs_err": 1.6987323760986328e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "stress_const_pos3",
+        "ok": true,
+        "max_abs_err": 7.271766662597656e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      },
+      {
+        "input_id": "stress_const_neg3",
+        "ok": true,
+        "max_abs_err": 8.821487426757812e-06,
+        "top1_match": true,
+        "top5_overlap": 1.0
+      }
+    ]
+  }
+}
