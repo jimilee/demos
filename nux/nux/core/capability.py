@@ -141,6 +141,9 @@ class CapabilityManifest:
 
 def validate_action(manifest: CapabilityManifest, candidate, workload_meta: dict | None = None):
     """Return (ok, reason). Filters candidates BEFORE submission (plan §6.2, §7.4)."""
+    wdt = (workload_meta or {}).get("dtype")
+    if wdt and manifest.dtypes and wdt not in manifest.dtypes:  # applies to the baseline too
+        return False, f"workload dtype {wdt} not supported by {manifest.backend_id} (dtypes {manifest.dtypes})"
     if candidate.kind == "baseline":
         return True, "baseline"
     spec = manifest.action(candidate.action_id)

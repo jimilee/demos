@@ -30,6 +30,16 @@ def test_downgrade_rewrites():
     assert "float 0xFFF0000000000000" in out
 
 
+def test_downgrade_half_and_bfloat_literals():
+    src = ("  %1 = fadd half %0, 1.000000e+00\n  %2 = select i1 %c, half -inf, half 0xH3C00\n"
+           "  @g = constant [3 x half] [half 6.103520e-05, half 6.550400e+04, half -2.468750e-01]\n"
+           "  %5 = fadd bfloat %b, 1.500000e+00\n  %6 = fadd float %a, 1.000000e+00\n")
+    out, _ = aot.downgrade_llvm_ir(src)
+    assert "half %0, 0xH3C00" in out and "half 0xHFC00" in out
+    assert "[half 0xH0400, half 0xH7BFF, half 0xHB3E6]" in out  # min normal, max finite, rounded
+    assert "bfloat %b, 0xR3FC0" in out and "float %a, 0x3FF0000000000000" in out  # type tracked per token
+
+
 @needs_llc
 def test_fmaxmin_expansion_bit_exact():
     src = ("declare float @llvm.maximum.f32(float, float)\ndeclare float @llvm.minimum.f32(float, float)\n"
@@ -54,6 +64,37 @@ def test_fmaxmin_expansion_bit_exact():
             r, q = getattr(L, "ref_" + op)(a, b), getattr(L, "new_" + op)(a, b)
             assert (r != r and q != q) or bits(r) == bits(q), (op, a, b, r, q)
 
+
+
+@needs_llc
+def test_fmaxmin_expansion_bit_exact_f16():
+    """f16 helpers (deit-tiny-fp16): compare with llvm.maximum/minimum.f16 on x86 over special and ordinary values.
+    Half values cross the C ABI as i16 bit patterns."""
+    body = ("define i16 @X_{op}(i16 %ai, i16 %bi) {{ %a = bitcast i16 %ai to half %b = bitcast i16 %bi to half "
+            "%r = call half @llvm.{op}imum.f16(half %a, half %b) %o = bitcast half %r to i16 ret i16 %o }}\n")
+    src = ("declare half @llvm.maximum.f16(half, half)\ndeclare half @llvm.minimum.f16(half, half)\n"
+           + body.format(op="max") + body.format(op="min"))
+    exp, n = aot.expand_fmaxmin(src.replace("@X_", "@new_"))
+    assert n == 2 and "@llvm.maximum.f16" not in exp
+    d = aot.workdir()
+    (d / "ref.ll").write_text(src.replace("@X_", "@ref_"))
+    (d / "new.ll").write_text(exp)
+    for k in ("ref", "new"):
+        aot.llc_compile(d / f"{k}.ll", "x86_64", d / f"{k}.o")
+    if "hexagon" in aot.llc_targets():  # the expanded form must be selectable by the Hexagon backend
+        aot.llc_compile(d / "new.ll", "hexagon-v73", d / "new_hex.o")
+    aot.link_shared([d / "ref.o", d / "new.o"], d / "lib16.so")
+    L = ctypes.CDLL(str(d / "lib16.so"))
+    for nm in ("ref_max", "ref_min", "new_max", "new_min"):
+        getattr(L, nm).restype = ctypes.c_uint16
+        getattr(L, nm).argtypes = [ctypes.c_uint16, ctypes.c_uint16]
+    vals = np.array([0.0, -0.0, 1.0, -1.0, np.inf, -np.inf, np.nan, 3.5, 6e-8, -6e-8, 65504.0], np.float16)
+    vals = [int(v) for v in vals.view(np.uint16)]
+    isnan = lambda b: (b & 0x7C00) == 0x7C00 and (b & 0x3FF) != 0  # noqa: E731
+    for a, b in itertools.product(vals, vals):
+        for op in ("max", "min"):
+            r, q = getattr(L, "ref_" + op)(a, b), getattr(L, "new_" + op)(a, b)
+            assert (isnan(r) and isnan(q)) or r == q, (op, hex(a), hex(b), hex(r), hex(q))
 
 def test_host_aot_matches_reference():
     w = get("toy-mlp")

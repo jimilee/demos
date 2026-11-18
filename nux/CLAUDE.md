@@ -11,7 +11,7 @@ Architecture reviews and the refactoring backlog (status per item, priorities): 
 - Python venv: `../.venv-npu` (`. ../.venv-npu/bin/activate`). torch 2.15 (PyPI), torch-mlir 20261101 (PyPI), transformers 5.23.
 - `export HF_HUB_DISABLE_XET=1` before anything that downloads DeiT weights (classic LFS path).
 - No Snapdragon device, no Hexagon SDK, no Hexagon-MLIR build in the cloud environment. System `llc` 18 has the Hexagon target (max hexagonv73).
-- Tests: `python -m pytest -q tests -p no:logging` (85 passed after the layer re-organization). Tests set `NUX_AOT_WORKDIR` to a temp dir.
+- Tests: `python -m pytest -q tests -p no:logging` (89 passed). Tests set `NUX_AOT_WORKDIR` to a temp dir.
 - Committed experiment stores (`store/`, `store_mock/`) are results: re-running a config APPENDS to them. For behavior checks, copy a config, set `"store": ".cache/verify_store"`, and compare `results.tsv` rows (state, failure, decision).
 
 ## Mock backends — caveats (read before using or changing them)
@@ -56,4 +56,8 @@ Other open items: backend conformance suite (refactor step 5) not written; vendo
 - Do not open, decompile or disassemble vendor binaries (QAIRT/QNN context binaries, runtimes). Vendor references come
   only from the vendor's documented outputs (e.g. `qnn-profile-viewer` JSON, see `nux/importers/`).
 - Only real device measurements can justify `accepted`; host and synthetic timings are never performance evidence.
-- DeiT stays fp32 (no dtype/quantization changes); vendor fp16 profiles are hints only.
+- A workload's dtype is fixed: no candidate may change dtype or quantize. DeiT exists as two workloads:
+  `deit-tiny` (fp32, contract `deit-tiny-fp32-logits-v0`) and `deit-tiny-fp16` (pinned weights cast with `.half()`,
+  contract `deit-tiny-fp16-logits-v0`, reference = fp32 model). Hexagon experiments run in fp16 at the user's request
+  (2026-11-18, `configs/deit_*hexagon_fp16.json`); fp32 results stay as they are. Backends declare supported `dtypes`;
+  a workload dtype outside that list stops at the capability stage (baseline included).

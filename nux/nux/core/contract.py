@@ -20,6 +20,7 @@ class Contract:
     require_finite: bool = True
     integer_exact: bool = True
     task_accuracy: str = "pending"  # no labeled set yet; top-1 drop <= 0.1pp proposed (plan §14)
+    require_top1: bool = False  # every input's top-1 class must equal the reference's
     note: str = ""
 
 
@@ -27,6 +28,13 @@ CONTRACTS = {
     "deit-tiny-fp32-logits-v0": Contract(
         "deit-tiny-fp32-logits-v0", atol=1e-4, rtol=1e-3, out_dtype="float32",
         note="plan v0.3 §14 smoke proposal; calibrate on device baseline before acceptance runs"),
+    # fp16 workload (deit-tiny-fp16): output is float16, reference is the fp32 model on the same (fp16) inputs.
+    # Initial proposal from host calibration: torch eager fp16 vs fp32 on the tune split gave max |err| 7.3e-3
+    # (logits up to ~7.8; fp16 half-ulp there is 3.9e-3). atol 2e-2 is ~2.7x that margin; rtol 5e-3 ~ 10 fp16 ulps.
+    # Holdout/stress (not used for calibration) max 8.8e-3. Recalibrate on the device baseline -> new contract id.
+    "deit-tiny-fp16-logits-v0": Contract(
+        "deit-tiny-fp16-logits-v0", atol=2e-2, rtol=5e-3, out_dtype="float16", require_top1=True,
+        note="host-calibrated proposal (torch eager fp16 vs fp32, tune split); recalibrate on device baseline"),
     "toy-fp32-v0": Contract("toy-fp32-v0", atol=1e-5, rtol=1e-4, out_dtype="float32"),
 }
 
@@ -61,6 +69,8 @@ def compare(contract: Contract, out: torch.Tensor, ref: torch.Tensor) -> dict:
     res["ok"] = res["n_violations"] == 0 and not (contract.require_finite and nonfinite)
     if not res["ok"]:
         res["reason"] = f"{res['n_violations']} elements outside atol={contract.atol} rtol={contract.rtol}; nonfinite={nonfinite}"
+    elif contract.require_top1 and not res["top1_match"]:
+        res.update(ok=False, reason="top-1 class differs from the reference")
     return res
 
 

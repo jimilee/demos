@@ -44,7 +44,7 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   │   ├── schema.py                  # Candidate, Measurement, CandidateRecord, 상태 사다리(State), 실패 분류(Failure)
 │   │   ├── capability.py              # CapabilityManifest, ActionSpec(support × validation), validate_action
 │   │   ├── adapters.py                # CompilerAdapter / RuntimeAdapter / ProfilerAdapter / AdapterBundle / Artifact
-│   │   ├── contract.py                # 정확성 계약 (deit-tiny-fp32-logits-v0, toy-fp32-v0)
+│   │   ├── contract.py                # 정확성 계약 (deit-tiny-fp32-logits-v0, deit-tiny-fp16-logits-v0, toy-fp32-v0)
 │   │   └── stats.py                   # paired block 통계, bootstrap CI, Policy(3% / CI>1.0 / p95 2%)
 │   │
 │   ├── storage/                       # [계층 1] 영속화 (core만 의존)
@@ -78,7 +78,7 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   │
 │   ├── workloads/                     # Workload registry
 │   │   ├── __init__.py                # register / get / Workload 인터페이스
-│   │   ├── deit.py                    # DeiT-tiny: 고정 revision·sha256, strict load, PIL 전처리, sub-workload
+│   │   ├── deit.py                    # DeiT-tiny(fp32)와 deit-tiny-fp16(같은 가중치를 .half()): 고정 revision·sha256, strict load, PIL 전처리
 │   │   ├── corpus.py                  # 수치·회귀 corpus 생성기 (tune / holdout / stress)
 │   │   └── toy.py                     # 테스트용 LayerNorm→Linear→GELU
 │   │
@@ -94,6 +94,8 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   ├── deit_host_prepare.json         # DeiT × host-linalg-jit (준비 모드)
 │   ├── deit_aot_host.json             # DeiT × llvm-aot-host
 │   ├── deit_aot_hexagon.json          # DeiT × llvm-aot-hexagon (Hexagon object까지)
+│   ├── deit_hexagon_fp16.json         # DeiT fp16 × hexagon-mlir (HexKL 후보 허용)
+│   ├── deit_aot_hexagon_fp16.json     # DeiT fp16 × llvm-aot-hexagon
 │   ├── a3_mock_mlir.json              # A3: MLIR형 mock
 │   └── a3_mock_sdk.json               # A3: SDK형 mock
 │
@@ -412,7 +414,8 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
 | 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
-| 테스트 | `python -m pytest -q tests` | 85 passed |
+| DeiT fp16 Hexagon 실험 | `python -m nux run --config configs/deit_{hexagon,aot_hexagon}_fp16.json` | workload `deit-tiny-fp16`, 계약 `deit-tiny-fp16-logits-v0`. hexagon-mlir: baseline·후보 → `ir_valid`, **`path.hexkl_matmul`이 이제 capability를 통과** (target compile은 toolchain 없음으로 pending). llvm-aot-hexagon: baseline·recipe 2개·`llc -O3` 모두 `target_compiled`, x86 twin이 fp32 모델 대비 max abs err 7.4e-3·top-1 일치로 계약 통과. upstream LLVM 18은 Hexagon에서 f16을 scalar f32로 승격(`__extendhfsf2`/`__truncsfhf2` 호출)하므로 이 object는 HVX fp16 코드가 아니다 |
+| 테스트 | `python -m pytest -q tests` | 89 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 
@@ -550,13 +553,15 @@ flowchart LR
 | fusion | 원본 ONNX 대비 벤더가 실행한 op 수 감소 (elementwise·gelu·norm·softmax) | `fusion` |
 | layout | Transpose·Reshape 등 layout op 감소 | `layout`·`reshape` |
 | placement | NPU 밖에서 실행된 op | `partition` |
-| precision | 변환(convert/cast/quantize) op 존재 | `precision` (fp32 계약에서는 차단됨) |
+| precision | 변환(convert/cast/quantize) op 존재 | `precision` (dtype 변환 action은 계약상 항상 차단. fp16은 별도 workload로 실험) |
 | memory | build config의 `vtcm_mb`·`O`, load·peak memory | `memory`·`tiling` |
 
-* seed 후보는 대상 backend의 capability로 필터링한다. 예: HexKL은 fp32 DeiT에서 차단되고, fp16 변환은 계약상 불가.
+* seed 후보는 대상 backend의 capability로 필터링한다. 예: HexKL은 fp32 DeiT에서 차단되고 `deit-tiny-fp16`에서는 허용된다.
+  workload의 dtype을 바꾸는 action(fp16 변환 등)은 어느 workload에서도 불가.
   각 후보는 `hypothesis`에 출처 hint id와 관찰 내용을 남긴다.
 * HTP는 fp32를 실행하지 않으므로 벤더 프로파일은 보통 **fp16(또는 int8) 결과**다.
-  힌트로만 쓰고, fp32 baseline과 성능을 섞어 비교하지 않는다 (계획 §13).
+  힌트로만 쓰고, fp32 baseline과 성능을 섞어 비교하지 않는다 (계획 §13). fp16 프로파일은 `deit-tiny-fp16`의
+  baseline과 비교할 수 있다 (단, 벤더 변환의 rounding·누적 방식이 같다는 보장은 없다).
 * importer는 실제 파일에서 찾은 key(`found_keys`)와 경고를 기록한다.
   첫 실측 파일로 포맷 가정을 확인할 것. 테스트 fixture는 문서화된 구조를 따른 **합성 데이터**다.
 * QNN JSON 구조는 Qualcomm의 오픈 소스(BSD-3-Clause) QAI AppBuilder 스크립트
@@ -596,6 +601,7 @@ python -m nux env                    # reports/env.json의 backends.hexagon-mlir
 python -m nux capabilities --backend hexagon-mlir   # 실제 HexagonOptions 필드로 capability 재계산
 python -m nux smoke --backend hexagon-mlir          # target_compiled 여부 (최소 op → block → 전체)
 python -m nux run --config configs/deit_hexagon.json
+python -m nux run --config configs/deit_hexagon_fp16.json      # fp16: HexKL(HMX) matmul 후보 포함
 ```
 * Hexagon 쪽 torch-mlir(`20260915.877`, hexagon-mlir `ci/torch-requirements.txt`)과 이 프로젝트의
   torch-mlir 버전이 다르면 IR 호환성 문제가 생길 수 있다. 그래서 adapter는 IR을 bytecode가 아니라
@@ -622,5 +628,8 @@ python -m nux run --config configs/deit_hexagon.json
 * host JIT는 naive loop lowering이라 첫 실행이 약 11초, 이후 약 1.1초 걸린다. 정확성 확인용일 뿐이다.
 * 정확성 계약 `deit-tiny-fp32-logits-v0`는 계획의 smoke 제안값이다. device baseline으로 calibration한 뒤
   새 contract id로 고정한다.
+* `deit-tiny-fp16-logits-v0`(atol 2e-2, rtol 5e-3, top-1 일치 필수)는 host에서 torch eager fp16과 fp32를 비교해
+  정한 제안값이다 (tune split 최대 오차 7.3e-3의 약 2.7배). reference는 fp32 모델이므로 fp16 프로그램을 원래 모델과
+  비교한다. 역시 device baseline으로 다시 정한다.
 * DeiT 가중치는 `pytorch_model.bin`(pickle 형식)뿐이다. transformers가 `weights_only` 경로로
   로드하지만, 추후 safetensors 변환본을 만들어 hash로 고정하는 것이 안전하다.

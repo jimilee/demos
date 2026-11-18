@@ -172,3 +172,16 @@ def test_record_validation_blocks_inconsistent_records(tmp_path):
         rec = CandidateRecord(eid, dict(cand), "b", "w", "c", stages=ok_stage, **kw)
         with pytest.raises(RecordError):
             s.write_record(rec)
+
+
+def test_contract_require_top1_and_backend_dtype_gate():
+    c16 = C.get("deit-tiny-fp16-logits-v0")
+    ref = torch.tensor([[1.000, 1.005, 0.0, 0.0, 0.0]])
+    out = torch.tensor([[1.004, 1.001, 0.0, 0.0, 0.0]], dtype=torch.float16)  # within atol/rtol, top-1 flips
+    r = C.compare(c16, out, ref)
+    assert r["n_violations"] == 0 and not r["ok"] and "top-1" in r["reason"]
+    assert C.compare(c16, out.float(), ref)["reason"].startswith("dtype")  # output dtype is part of the contract
+    m = mock.mlir_manifest()  # declares float32 only
+    ok, why = validate_action(m, Candidate("baseline", "baseline"), {"dtype": "float16"})
+    assert not ok and "float16" in why
+    assert validate_action(m, Candidate("baseline", "baseline"), {"dtype": "float32"})[0]

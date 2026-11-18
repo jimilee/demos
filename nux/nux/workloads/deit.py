@@ -75,6 +75,7 @@ class DeiTLogits(torch.nn.Module):
 @register("deit-tiny")
 class DeiTTiny(Workload):
     func_name = "deit_tiny"
+    input_dtype = torch.float32
 
     def __init__(self, offline: bool | None = None):
         self.offline = bool(int(os.environ.get("NUX_OFFLINE", "0"))) if offline is None else offline
@@ -189,6 +190,46 @@ class DeiTTiny(Workload):
                               "processor": type(self.processor()).__name__, "processor_backend": PROCESSOR_BACKEND},
                 "load_info": self._load_info, "structure": EXPECTED, "meta": self.meta(),
                 "preprocessor_config": json.loads((p / "preprocessor_config.json").read_text())}
+
+
+@register("deit-tiny-fp16")
+class DeiTTinyFp16(DeiTTiny):
+    """DeiT-tiny with the pinned fp32 weights cast to float16 (torch .half(), round-to-nearest-even).
+
+    A separate workload, not a precision option: its dtype is fixed, the optimizer must preserve it, and it has its
+    own contract (deit-tiny-fp16-logits-v0) and best pointers. Inputs are the same preprocessed images cast to
+    float16. The correctness reference is the fp32 model on those inputs, so the contract measures the fp16
+    program against the original model, not against another fp16 implementation.
+    """
+
+    input_dtype = torch.float16
+
+    def half_model(self):
+        if getattr(self, "_half", None) is None:
+            import copy
+
+            self._half = copy.deepcopy(self.hf_model()).half().eval()
+        return self._half
+
+    def module(self):
+        return DeiTLogits(self.half_model()).eval()
+
+    def example_inputs(self):
+        return [torch.zeros(1, 3, 224, 224, dtype=torch.float16)]
+
+    def meta(self):
+        return {**super().meta(), "dtype": "float16", "weights": "fp32 checkpoint cast with torch .half()"}
+
+    def submodules(self):
+        import copy  # the encoder block shares parameters with the fp32 model: cast a copy, never in place
+
+        return [(n, copy.deepcopy(m).half().eval(), [t.half() for t in x]) for n, m, x in super().submodules()]
+
+    def preprocess(self, pil_image) -> torch.Tensor:
+        return super().preprocess(pil_image).half()
+
+    def reference(self, inputs, hidden_states=False):
+        return super().reference([inputs[0].float()], hidden_states)
 
 
 def write_lock(w: DeiTTiny):

@@ -108,6 +108,23 @@ def _hexd(v):
     return "0x%016X" % struct.unpack(">Q", struct.pack(">d", v))[0]
 
 
+def _half_bits(v: float) -> str:
+    """LLVM IR half literal (0xHhhhh): IEEE binary16, round-to-nearest-even."""
+    return "0xH%04X" % struct.unpack("<H", struct.pack("<e", v))[0]
+
+
+def _bfloat_bits(v: float) -> str:
+    """LLVM IR bfloat literal (0xRhhhh): top 16 bits of binary32, round-to-nearest-even (NaN kept quiet)."""
+    b = struct.unpack("<I", struct.pack("<f", v))[0]
+    if v != v:
+        return "0xR%04X" % ((b >> 16) | 0x40)
+    return "0xR%04X" % (((b + 0x7FFF + ((b >> 16) & 1)) >> 16) & 0xFFFF)
+
+
+def _narrow(cur, v):
+    return _half_bits(v) if cur == "half" else _bfloat_bits(v)
+
+
 def _fix_line(line):
     cur = ["float"]
 
@@ -122,12 +139,14 @@ def _fix_line(line):
         if m.group(4):
             if m.group(4) not in _SPECIAL:
                 raise NotImplementedError(f"special FP literal {m.group(4)}")
+            if cur[0] in ("half", "bfloat"):
+                return _narrow(cur[0], struct.unpack(">d", _SPECIAL[m.group(4)].to_bytes(8, "big"))[0])
             return "0x%016X" % _SPECIAL[m.group(4)]
         v = float(m.group(3))
         if cur[0] == "float":
             v = struct.unpack("f", struct.pack("f", v))[0]
         elif cur[0] in ("half", "bfloat"):
-            raise NotImplementedError("half/bfloat literal downgrade not implemented")
+            return _narrow(cur[0], v)
         return _hexd(v)
 
     return _TOK.sub(rep, line)
@@ -148,44 +167,47 @@ def downgrade_llvm_ir(text: str) -> tuple:
 
 # IEEE-754 maximum/minimum (NaN-propagating, -0 < +0) as plain IR, for llc targets that cannot
 # select llvm.maximum/llvm.minimum (LLVM 18 Hexagon: "Cannot select fmaximum").
-_FMAXMIN = """
-define internal float @nux_fmaximum_f32(float %a, float %b) alwaysinline {
-  %uno = fcmp uno float %a, %b
-  %eq = fcmp oeq float %a, %b
-  %gt = fcmp ogt float %a, %b
-  %ia = bitcast float %a to i32
-  %ib = bitcast float %b to i32
-  %iz = and i32 %ia, %ib
-  %z = bitcast i32 %iz to float
-  %m = select i1 %gt, float %a, float %b
-  %e = select i1 %eq, float %z, float %m
-  %r = select i1 %uno, float 0x7FF8000000000000, float %e
-  ret float %r
-}
-define internal float @nux_fminimum_f32(float %a, float %b) alwaysinline {
-  %uno = fcmp uno float %a, %b
-  %eq = fcmp oeq float %a, %b
-  %lt = fcmp olt float %a, %b
-  %ia = bitcast float %a to i32
-  %ib = bitcast float %b to i32
-  %iz = or i32 %ia, %ib
-  %z = bitcast i32 %iz to float
-  %m = select i1 %lt, float %a, float %b
-  %e = select i1 %eq, float %z, float %m
-  %r = select i1 %uno, float 0x7FF8000000000000, float %e
-  ret float %r
-}
+_FMAXMIN_TMPL = """
+define internal {fty} @nux_f{op}_{sfx}({fty} %a, {fty} %b) alwaysinline {{
+  %uno = fcmp uno {fty} %a, %b
+  %eq = fcmp oeq {fty} %a, %b
+  %c = fcmp {cmp} {fty} %a, %b
+  %ia = bitcast {fty} %a to {ity}
+  %ib = bitcast {fty} %b to {ity}
+  %iz = {zop} {ity} %ia, %ib
+  %z = bitcast {ity} %iz to {fty}
+  %m = select i1 %c, {fty} %a, {fty} %b
+  %e = select i1 %eq, {fty} %z, {fty} %m
+  %r = select i1 %uno, {fty} {nan}, {fty} %e
+  ret {fty} %r
+}}
 """
+# suffix -> (IR float type, same-width int type, quiet NaN literal)
+_FTYPES = {"f32": ("float", "i32", "0x7FF8000000000000"), "f16": ("half", "i16", "0xH7E00")}
+# +0/-0 tie: maximum takes AND of the bit patterns (+0 wins), minimum takes OR (-0 wins)
+_FOPS = {"maximum": ("ogt", "and"), "minimum": ("olt", "or")}
+
+
+def _fmaxmin_helper(op: str, sfx: str) -> str:
+    fty, ity, nan = _FTYPES[sfx]
+    cmp, zop = _FOPS[op]
+    return _FMAXMIN_TMPL.format(fty=fty, ity=ity, nan=nan, op=op, sfx=sfx, cmp=cmp, zop=zop)
 
 
 def expand_fmaxmin(text: str) -> tuple:
-    """Replace llvm.maximum/minimum.f32 with exact IR helpers. Returns (text, n_calls_replaced)."""
-    n = len(re.findall(r"@llvm\.(?:maximum|minimum)\.f32\(", text)) - len(re.findall(r"declare [^\n]*@llvm\.(?:maximum|minimum)\.f32\(", text))
-    if n <= 0:
-        return text, 0
-    text = re.sub(r"^declare [^\n]*@llvm\.(?:maximum|minimum)\.f32\([^\n]*\n", "", text, flags=re.M)
-    text = text.replace("@llvm.maximum.f32(", "@nux_fmaximum_f32(").replace("@llvm.minimum.f32(", "@nux_fminimum_f32(")
-    return text + _FMAXMIN, n
+    """Replace llvm.maximum/minimum.{f32,f16} with exact IR helpers. Returns (text, n_calls_replaced)."""
+    n_total, helpers = 0, []
+    for sfx in _FTYPES:
+        for op in _FOPS:
+            name = f"@llvm.{op}.{sfx}("
+            n = text.count(name) - len(re.findall(rf"declare [^\n]*@llvm\.{op}\.{sfx}\(", text))
+            if n <= 0:
+                continue
+            text = re.sub(rf"^declare [^\n]*@llvm\.{op}\.{sfx}\([^\n]*\n", "", text, flags=re.M)
+            text = text.replace(name, f"@nux_f{op}_{sfx}(")
+            helpers.append(_fmaxmin_helper(op, sfx))
+            n_total += n
+    return (text + "".join(helpers), n_total) if n_total else (text, 0)
 
 
 def llc_compile(ll_path: Path, target: str, out: Path, opt="-O2") -> dict:
@@ -237,11 +259,11 @@ class AOTLibrary:
         self.lib = ctypes.CDLL(str(so_path))
         self.fn = getattr(self.lib, f"_mlir_ciface_{func_name}")
         self.fn.restype = None
-        m = re.match(r"tensor<((?:\d+x)*)(f32|f64)>", result_type)
+        m = re.match(r"tensor<((?:\d+x)*)(f32|f16|f64)>", result_type)
         if not m:
             raise NotImplementedError(result_type)
         self.out_shape = tuple(int(d) for d in m.group(1).strip("x").split("x") if d)
-        self.out_dtype = {"f32": np.float32, "f64": np.float64}[m.group(2)]
+        self.out_dtype = {"f32": np.float32, "f16": np.float16, "f64": np.float64}[m.group(2)]
 
     def __call__(self, *arrays):
         from torch_mlir.runtime import (

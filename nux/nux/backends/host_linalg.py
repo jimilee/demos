@@ -31,7 +31,7 @@ def manifest():
     return CapabilityManifest(
         backend_id=BACKEND_ID, version=v, compiler_profile=f"{v}/linalg-on-tensors",
         runtime_profile="mlir-execution-engine-host", profiler_profile="host-wallclock",
-        input_stages=["pytorch", "linalg-on-tensors"], dtypes=["float32"], actions=actions,
+        input_stages=["pytorch", "linalg-on-tensors"], dtypes=["float32", "float16"], actions=actions,
         compatible_runtimes=["mlir-execution-engine-host"],
         execution=ExecutionCaps(target_codegen=False, executes_on="host"),
         compile_fingerprint={"host_pipeline": H.HOST_PIPELINE},

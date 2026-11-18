@@ -67,7 +67,7 @@ def host_manifest():
     return CapabilityManifest(
         backend_id=HOST_ID, version="mlir-own-llvm", compiler_profile="mlir-llvm-aot/x86_64",
         runtime_profile="ctypes-shared-library", profiler_profile="host-wallclock", input_stages=["linalg-on-tensors"],
-        dtypes=["float32"], compatible_runtimes=["ctypes-shared-library"],
+        dtypes=["float32", "float16"], compatible_runtimes=["ctypes-shared-library"],
         actions=transforms.recipe_actions("upstream MLIR pass; AOT shared library") + [
             ActionSpec("aot.opt_level", "config", "LLVM opt level", "aot", params=[ParamSpec("opt_level", "int", min=0, max=3)])],
         execution=ExecutionCaps(target_codegen=False, executes_on="host"),
@@ -155,7 +155,7 @@ def hex_manifest():
     return CapabilityManifest(
         backend_id=HEX_ID, version=f"llc-{v}", compiler_profile=f"upstream-llvm-{v}/{t}",
         runtime_profile="none (needs Hexagon SDK runtime)", profiler_profile="none", input_stages=["linalg-on-tensors"],
-        dtypes=["float32"], compatible_runtimes=["none (needs Hexagon SDK runtime)"],
+        dtypes=["float32", "float16"], compatible_runtimes=["none (needs Hexagon SDK runtime)"],
         actions=transforms.recipe_actions("upstream MLIR pass; codegen by upstream LLVM Hexagon backend") + [
             ActionSpec("llc.opt", "config", "llc optimization level", "aot", params=[ParamSpec("opt", "enum", choices=["-O0", "-O1", "-O2", "-O3"])])],
         execution=ExecutionCaps(target_codegen=True, executes_on="none"),

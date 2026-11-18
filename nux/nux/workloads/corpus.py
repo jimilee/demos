@@ -76,7 +76,7 @@ def build_image_corpus(workload, limit_per_split: dict | None = None):
     for name, val in (("const_zero", 0.0), ("const_pos3", 3.0), ("const_neg3", -3.0)):
         if limit_per_split and counts.get("stress", 0) >= limit_per_split.get("stress", 1 << 30):
             break
-        x = torch.full((1, 3, 224, 224), val)
+        x = torch.full((1, 3, 224, 224), val, dtype=getattr(workload, "input_dtype", torch.float32))
         out.append({"id": f"stress_{name}", "split": "stress", "tensors": [x], "beyond_processor_domain": True,
                     "sha256": hashlib.sha256(x.numpy().tobytes()).hexdigest(), "generator": GENERATOR_VERSION})
     return out

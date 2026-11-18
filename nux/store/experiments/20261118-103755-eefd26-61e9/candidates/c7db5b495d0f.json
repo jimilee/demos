@@ -1,0 +1,268 @@
+{
+  "experiment_id": "20261118-103755-eefd26-61e9",
+  "candidate": {
+    "action_id": "baseline",
+    "kind": "baseline",
+    "params": {},
+    "hypothesis": "backend defaults",
+    "expected_savings": "",
+    "possible_costs": "",
+    "scope": "module",
+    "parent_id": null,
+    "payload_files": {},
+    "candidate_id": "c7db5b495d0f"
+  },
+  "backend_id": "llvm-aot-hexagon",
+  "workload_id": "deit-tiny-fp16",
+  "contract_id": "deit-tiny-fp16-logits-v0",
+  "state": "target_compiled",
+  "failure": null,
+  "failure_detail": "Hexagon object built; executing it needs the Hexagon SDK runtime (FastRPC skel / run_main_on_hexagon) and a device",
+  "stages": [
+    {
+      "stage": "proposed",
+      "status": "passed",
+      "detail": "",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "capability",
+      "status": "passed",
+      "detail": "baseline",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "compile",
+      "status": "passed",
+      "detail": "artifact-store hit a6d88b9396bb",
+      "seconds": 0.05572704400015027,
+      "artifacts": {
+        "kind": "object",
+        "cache": "hit"
+      }
+    },
+    {
+      "stage": "ir_verify",
+      "status": "passed",
+      "detail": "MLIR verifier (structural only)",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "twin_correctness",
+      "status": "passed",
+      "detail": "x86-64 build of the same downgraded LLVM IR given to the Hexagon backend: max_abs_err=0.0074 on 4 inputs",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "device_correctness",
+      "status": "pending",
+      "detail": "Hexagon object built; executing it needs the Hexagon SDK runtime (FastRPC skel / run_main_on_hexagon) and a device",
+      "seconds": null,
+      "artifacts": {}
+    }
+  ],
+  "requested_config": {},
+  "effective_config": {
+    "opt": "-O2"
+  },
+  "ir_hashes": {
+    "linalg-on-tensors": "4f5e992bd5ca454006abb79b6f23429c8420425269c7b40e87d1082008c7e7ef",
+    "llvm-ir-downgraded": "e39c9dbae685f96bd8043f7906ad4838b06b5983eb8e8f78e32fbad61c2584c3"
+  },
+  "artifact_hashes": {
+    "hexagon_object": "794e256819d2f68d669a6f69e31c3a39ae7e303de2ed052eafd561fe30eadb2f",
+    "twin_x86_object": "15708d625d0cdf5df1a8b864735cca2d1d5b8f9ee87cd6bd0c0ace3f2ba13e00"
+  },
+  "correctness": {
+    "ok": true,
+    "n_inputs": 4,
+    "n_failed": 0,
+    "max_abs_err": 0.007397651672363281,
+    "failed_inputs": [],
+    "task_accuracy": "pending",
+    "splits": [
+      "tune",
+      "stress"
+    ],
+    "per_input": [
+      {
+        "input_id": "tune_blobs_1",
+        "ok": true,
+        "max_abs_err": 0.004586935043334961,
+        "mean_abs_err": 0.001144435226917267,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "tune_blobs_2",
+        "ok": true,
+        "max_abs_err": 0.007397651672363281,
+        "mean_abs_err": 0.0013913443014025688,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "stress_white_0",
+        "ok": true,
+        "max_abs_err": 0.003255188465118408,
+        "mean_abs_err": 0.0008051891070790589,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "stress_black_0",
+        "ok": true,
+        "max_abs_err": 0.003653019666671753,
+        "mean_abs_err": 0.0007688883617520332,
+        "top1_match": true,
+        "top5_overlap": 1.0,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      }
+    ]
+  },
+  "measurement": null,
+  "decision": null,
+  "toolchain_lock": {
+    "python": "3.13.18",
+    "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+    "torch": "2.15.0",
+    "torch-mlir": "20261101",
+    "transformers": "5.23.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "onnx": "1.23.2",
+    "onnxruntime": "1.32.0",
+    "backends": {
+      "hexagon-mlir": {
+        "version": "hexagon-mlir@9ec15e8",
+        "compiler_profile": "hexagon-mlir/torch-mlir-linalg",
+        "runtime_profile": "hexagon-standalone-launcher",
+        "device_profile": {
+          "arch": null,
+          "serial_set": false,
+          "state": null
+        },
+        "traits": {
+          "executes_on": "device",
+          "target_codegen": true,
+          "measurement_tier": "device",
+          "e2e": "unavailable",
+          "acceptance_capable": false
+        },
+        "environment": {
+          "HEXAGON_ARCH_VERSION": null,
+          "HEXAGON_SDK_ROOT": null,
+          "HEXAGON_TOOLS": null,
+          "HEXKL_ROOT": null,
+          "ANDROID_SERIAL": null,
+          "toolchain_importable": false,
+          "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+          "adb": null
+        }
+      },
+      "host-linalg-jit": {
+        "version": "torch-mlir-20261101",
+        "compiler_profile": "torch-mlir-20261101/linalg-on-tensors",
+        "runtime_profile": "mlir-execution-engine-host",
+        "device_profile": {},
+        "traits": {
+          "executes_on": "host",
+          "target_codegen": false,
+          "measurement_tier": "host",
+          "e2e": "supported",
+          "acceptance_capable": false
+        },
+        "environment": {}
+      },
+      "llvm-aot-hexagon": {
+        "version": "llc-18.1.3",
+        "compiler_profile": "upstream-llvm-18.1.3/hexagon-v73",
+        "runtime_profile": "none (needs Hexagon SDK runtime)",
+        "device_profile": {
+          "arch": "73"
+        },
+        "traits": {
+          "executes_on": "none",
+          "target_codegen": true,
+          "measurement_tier": "none",
+          "e2e": "unavailable",
+          "acceptance_capable": false
+        },
+        "environment": {
+          "llc": "/usr/bin/llc",
+          "llc_version": "18.1.3",
+          "hexagon_target": true
+        }
+      },
+      "llvm-aot-host": {
+        "version": "mlir-own-llvm",
+        "compiler_profile": "mlir-llvm-aot/x86_64",
+        "runtime_profile": "ctypes-shared-library",
+        "device_profile": {},
+        "traits": {
+          "executes_on": "host",
+          "target_codegen": false,
+          "measurement_tier": "host",
+          "e2e": "supported",
+          "acceptance_capable": false
+        },
+        "environment": {}
+      },
+      "mock-mlir": {
+        "version": "mock-1",
+        "compiler_profile": "mock-mlir-compiler",
+        "runtime_profile": "mock-mlir-runtime",
+        "device_profile": {},
+        "traits": {
+          "executes_on": "host",
+          "target_codegen": false,
+          "measurement_tier": "synthetic",
+          "e2e": "supported",
+          "acceptance_capable": false
+        },
+        "environment": {}
+      },
+      "mock-sdk": {
+        "version": "mock-1",
+        "compiler_profile": "mock-sdk-compiler",
+        "runtime_profile": "mock-sdk-runtime",
+        "device_profile": {},
+        "traits": {
+          "executes_on": "host",
+          "target_codegen": false,
+          "measurement_tier": "synthetic",
+          "e2e": "supported",
+          "acceptance_capable": false
+        },
+        "environment": {}
+      }
+    }
+  },
+  "backend_traits": {
+    "executes_on": "none",
+    "target_codegen": true,
+    "measurement_tier": "none",
+    "e2e": "unavailable",
+    "acceptance_capable": false
+  },
+  "cache_key": "a6d88b9396bb6b536ffe6d7a1e313f54",
+  "cache_hit": true,
+  "created_at": "2026-11-18T10:38:09+0000",
+  "schema_version": "nux-schema-0.3"
+}

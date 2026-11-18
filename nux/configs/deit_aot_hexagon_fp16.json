@@ -1,0 +1,51 @@
+{
+  "_note": "fp16 workload (user request 2026-11-18): pinned fp32 DeiT-tiny weights cast with torch .half(); contract compares against the fp32 model. See nux/core/contract.py for the tolerance derivation.",
+  "workload_id": "deit-tiny-fp16",
+  "evaluation_contract_id": "deit-tiny-fp16-logits-v0",
+  "correctness_splits": [
+    "tune",
+    "stress"
+  ],
+  "corpus_limit": {
+    "tune": 2,
+    "stress": 2,
+    "holdout": 0
+  },
+  "budget": {
+    "max_candidates": 20,
+    "max_consecutive_failures": 5
+  },
+  "store": "store",
+  "policy": {
+    "warmup": 20,
+    "pairs": 10,
+    "requests_per_block": 20
+  },
+  "backend_id": "llvm-aot-hexagon",
+  "compiler_profile": "",
+  "runtime_profile": "",
+  "candidates": [
+    {
+      "action_id": "recipe.fold-unit-extent-dims",
+      "kind": "ir_recipe",
+      "hypothesis": "dropping 208 unit-dim reshapes removes reshape/copy materialization",
+      "expected_savings": "reshape/copy ops",
+      "possible_costs": "more ops (2209->2791); target lowering may differ"
+    },
+    {
+      "action_id": "recipe.fuse-elementwise",
+      "kind": "ir_recipe",
+      "hypothesis": "elementwise fusion removes intermediate tensors (2209->2051 ops)",
+      "expected_savings": "materialization between elementwise ops",
+      "possible_costs": "creates rank-5 reshapes on attention scores (see reproducers); register pressure"
+    },
+    {
+      "action_id": "llc.opt",
+      "kind": "config",
+      "params": {
+        "opt": "-O3"
+      },
+      "hypothesis": "llc -O3 for the Hexagon object"
+    }
+  ]
+}
