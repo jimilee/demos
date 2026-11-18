@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import time
+import uuid
 from pathlib import Path
 
 from .schema import dump
@@ -21,11 +22,6 @@ def _atomic(path: Path, text: str):
     tmp.replace(path)
 
 
-def cache_key(**parts) -> str:
-    """Includes backend/profile/IR/options/toolchain/arch/dtype/shape (plan §12)."""
-    return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()[:20]
-
-
 class Store:
     def __init__(self, root):
         self.root = Path(root)
@@ -34,7 +30,9 @@ class Store:
         self.tsv = self.root / "results.tsv"
 
     def new_experiment(self, config: dict, lock: dict) -> str:
-        eid = time.strftime("%Y%m%d-%H%M%S") + "-" + hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()[:6]
+        # time + config hash + random suffix: two runs of the same config in the same second must not collide
+        eid = (time.strftime("%Y%m%d-%H%M%S") + "-" + hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()[:6]
+               + "-" + uuid.uuid4().hex[:4])
         d = self.root / "experiments" / eid
         d.mkdir(parents=True)
         (d / "experiment.json").write_text(dump({"experiment_id": eid, "config": config, "lock": lock}))

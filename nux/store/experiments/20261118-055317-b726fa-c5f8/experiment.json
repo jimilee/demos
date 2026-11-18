@@ -1,0 +1,744 @@
+{
+  "experiment_id": "20261118-055317-b726fa-c5f8",
+  "config": {
+    "workload_id": "deit-tiny",
+    "evaluation_contract_id": "deit-tiny-fp32-logits-v0",
+    "device_profile": "set-ANDROID_SERIAL-and-HEXAGON_ARCH_VERSION",
+    "correctness_splits": [
+      "tune",
+      "stress"
+    ],
+    "corpus_limit": {
+      "tune": 2,
+      "stress": 2,
+      "holdout": 0
+    },
+    "budget": {
+      "max_candidates": 20,
+      "max_consecutive_failures": 5
+    },
+    "store": "store",
+    "policy": {
+      "warmup": 20,
+      "pairs": 10,
+      "requests_per_block": 20
+    },
+    "backend_id": "hexagon-mlir",
+    "compiler_profile": "hexagon-mlir/torch-mlir-linalg",
+    "runtime_profile": "hexagon-standalone-launcher",
+    "candidates": [
+      {
+        "action_id": "opt.fusion",
+        "kind": "config",
+        "params": {
+          "value": false
+        },
+        "hypothesis": "baseline fusion on: check cost of disabling"
+      },
+      {
+        "action_id": "opt.enableMultiThreading",
+        "kind": "config",
+        "params": {
+          "value": true
+        },
+        "hypothesis": "linalg multithreading over token dim"
+      },
+      {
+        "action_id": "recipe.fold-unit-extent-dims",
+        "kind": "ir_recipe",
+        "hypothesis": "pre-compile DropUnitDims"
+      },
+      {
+        "action_id": "recipe.fuse-elementwise",
+        "kind": "ir_recipe",
+        "hypothesis": "pre-compile fusion; watch the rank-5 collapse_shape path"
+      },
+      {
+        "action_id": "path.hexkl_matmul",
+        "kind": "lowering_path",
+        "params": {
+          "mode": "micro"
+        },
+        "hypothesis": "HMX matmul; expected filtered: fp32 model, HexKL needs f16"
+      },
+      {
+        "action_id": "kernel.triton_replace",
+        "kind": "kernel",
+        "hypothesis": "expected filtered until ABI binding is proven"
+      }
+    ]
+  },
+  "lock": {
+    "toolchain": {
+      "python": "3.13.18",
+      "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+      "torch": "2.15.0",
+      "torch-mlir": "20261101",
+      "transformers": "5.23.0",
+      "huggingface-hub": "2.4.0",
+      "numpy": "2.5.5",
+      "pillow": "13.0.0",
+      "hexagon": {
+        "toolchain_importable": false,
+        "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+        "HEXAGON_ARCH_VERSION": null,
+        "HEXAGON_SDK_ROOT": null,
+        "HEXAGON_TOOLS": null,
+        "HEXKL_ROOT": null,
+        "adb": null,
+        "device_state": null,
+        "source_rev_assumed": "9ec15e8"
+      }
+    },
+    "workload": {
+      "workload_id": "deit-tiny",
+      "model_id": "facebook/deit-tiny-patch16-224",
+      "revision": "b3428f18dcc7b543470d07f14b4a4157815d1880",
+      "files": {
+        "pytorch_model.bin": "e1a51b0c81ff812e079d2189352747947879fee56429e4480064a6695cb34b2c",
+        "config.json": "e8786a68c993c04b8721c4d379e4f9de6a9564fba5987704dbf8696d53b7972d",
+        "preprocessor_config.json": "90d1ae427c27d2b9dcb01f6a62ba96aa67aac2de1697c59cd212055b5035c4a2"
+      },
+      "framework": {
+        "torch": "2.15.0+cu132",
+        "transformers": "5.23.0",
+        "class": "ViTForImageClassification",
+        "attn_implementation": "sdpa",
+        "processor": "ViTImageProcessorPil",
+        "processor_backend": "pil"
+      },
+      "load_info": null,
+      "structure": {
+        "num_hidden_layers": 12,
+        "hidden_size": 192,
+        "num_attention_heads": 3,
+        "patch_size": 16,
+        "image_size": 224,
+        "num_labels": 1000,
+        "tokens": 197,
+        "head_dim": 64
+      },
+      "meta": {
+        "dtype": "float32",
+        "inputs": [
+          [
+            1,
+            3,
+            224,
+            224
+          ]
+        ],
+        "outputs": [
+          [
+            1,
+            1000
+          ]
+        ],
+        "layout": "NCHW",
+        "batch": 1,
+        "quantized": false,
+        "num_hidden_layers": 12,
+        "hidden_size": 192,
+        "num_attention_heads": 3,
+        "patch_size": 16,
+        "image_size": 224,
+        "num_labels": 1000,
+        "tokens": 197,
+        "head_dim": 64
+      },
+      "preprocessor_config": {
+        "do_normalize": true,
+        "do_resize": true,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "size": 224
+      }
+    },
+    "capabilities": {
+      "backend_id": "hexagon-mlir",
+      "version": "hexagon-mlir@9ec15e8",
+      "compiler_profile": "hexagon-mlir/torch-mlir-linalg",
+      "runtime_profile": "hexagon-standalone-launcher",
+      "profiler_profile": "none",
+      "input_stages": [
+        "linalg-on-tensors"
+      ],
+      "dtypes": [
+        "float32",
+        "float16"
+      ],
+      "actions": [
+        {
+          "action_id": "opt.fusion",
+          "kind": "config",
+          "description": "linalg fusion",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "fusion"
+          ]
+        },
+        {
+          "action_id": "opt.fusionAllowRecompute",
+          "kind": "config",
+          "description": "fusion may recompute producers",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "fusion"
+          ]
+        },
+        {
+          "action_id": "opt.fusionDoMultiUse",
+          "kind": "config",
+          "description": "fuse producers with multiple uses",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "fusion"
+          ]
+        },
+        {
+          "action_id": "opt.enableVectorization",
+          "kind": "config",
+          "description": "HVX vectorization",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "vector",
+            "codegen"
+          ]
+        },
+        {
+          "action_id": "opt.enableVTCMTiling",
+          "kind": "config",
+          "description": "tile linalg.generic into VTCM",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "tiling",
+            "memory"
+          ]
+        },
+        {
+          "action_id": "opt.enableConvertToHexagonmem",
+          "kind": "config",
+          "description": "rewrite memref alloc/copy to hexagonmem",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "memory"
+          ]
+        },
+        {
+          "action_id": "opt.enableHexagonmemCopyToDMA",
+          "kind": "config",
+          "description": "hexagonmem copies via DMA",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "memory"
+          ]
+        },
+        {
+          "action_id": "opt.enableDoubleBuffering",
+          "kind": "config",
+          "description": "double buffering",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "experimental",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "memory"
+          ]
+        },
+        {
+          "action_id": "opt.enableMultiThreading",
+          "kind": "config",
+          "description": "linalg-generic multithreading (FormVirtualThreads)",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "threading"
+          ]
+        },
+        {
+          "action_id": "opt.enableSplitReduction",
+          "kind": "config",
+          "description": "split-reduction",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "reduction"
+          ]
+        },
+        {
+          "action_id": "opt.enableHVXInlining",
+          "kind": "config",
+          "description": "HVX inlining",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "codegen"
+          ]
+        },
+        {
+          "action_id": "opt.enableSCFLoopUnroll",
+          "kind": "config",
+          "description": "scf loop unroll",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "codegen"
+          ]
+        },
+        {
+          "action_id": "opt.enableConversionToFp16",
+          "kind": "config",
+          "description": "convert to fp16",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "bool",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "unavailable",
+          "validation": "unvalidated",
+          "evidence": "excluded: dtype/quantization must be preserved (plan \u00a72)",
+          "tags": [
+            "precision"
+          ]
+        },
+        {
+          "action_id": "opt.tileSizes",
+          "kind": "config",
+          "description": "user tile sizes (backend notes: debugging)",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "value",
+              "type": "str",
+              "choices": null,
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "experimental",
+          "validation": "unvalidated",
+          "evidence": "qcom_hexagon_backend/backend/hexagon_options.py @ 9ec15e8",
+          "tags": [
+            "tiling"
+          ]
+        },
+        {
+          "action_id": "path.hexkl_matmul",
+          "kind": "lowering_path",
+          "description": "lower matmul via HexKL (HMX)",
+          "stage": "compile-options",
+          "params": [
+            {
+              "name": "mode",
+              "type": "enum",
+              "choices": [
+                "micro",
+                "macro"
+              ],
+              "min": null,
+              "max": null
+            }
+          ],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {
+            "dtypes": [
+              "float16"
+            ],
+            "arch_exclude": [
+              "81"
+            ]
+          },
+          "support": "experimental",
+          "validation": "unvalidated",
+          "evidence": "MatmulToHexKLPass.cpp: f16 inputs only; user-guide: not valid on v81; macro mode needs constant weights",
+          "tags": [
+            "library_matmul",
+            "kernel"
+          ]
+        },
+        {
+          "action_id": "recipe.canonicalize-cse",
+          "kind": "ir_recipe",
+          "description": "folding/canonical forms + common subexpression elimination",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass on the input IR; target effect unvalidated",
+          "tags": [
+            "cleanup"
+          ]
+        },
+        {
+          "action_id": "recipe.fold-unit-extent-dims",
+          "kind": "ir_recipe",
+          "description": "DropUnitDims: remove size-1 loop dims of linalg ops via collapse/expand reshapes; element order unchanged",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass on the input IR; target effect unvalidated",
+          "tags": [
+            "layout",
+            "reshape"
+          ]
+        },
+        {
+          "action_id": "recipe.fold-unit-extent-dims-slices",
+          "kind": "ir_recipe",
+          "description": "DropUnitDims using rank-reducing extract/insert_slice instead of reshapes",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass on the input IR; target effect unvalidated",
+          "tags": [
+            "layout",
+            "reshape"
+          ]
+        },
+        {
+          "action_id": "recipe.fuse-elementwise",
+          "kind": "ir_recipe",
+          "description": "producer/consumer fusion of elementwise linalg.generic ops (removes materialization)",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass on the input IR; target effect unvalidated",
+          "tags": [
+            "fusion",
+            "memory"
+          ]
+        },
+        {
+          "action_id": "recipe.generalize-named-ops",
+          "kind": "ir_recipe",
+          "description": "rewrite named ops (matmul, transpose, ...) as linalg.generic",
+          "stage": "linalg-on-tensors",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [],
+          "constraints": {},
+          "support": "supported",
+          "validation": "unvalidated",
+          "evidence": "upstream MLIR pass on the input IR; target effect unvalidated",
+          "tags": [
+            "codegen"
+          ]
+        },
+        {
+          "action_id": "kernel.triton_replace",
+          "kind": "kernel",
+          "description": "replace a model op with a Triton kernel",
+          "stage": "triton-kernel",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [
+            "kernel-binding"
+          ],
+          "constraints": {},
+          "support": "unavailable",
+          "validation": "unvalidated",
+          "evidence": "no proven symbol/ABI binding between Triton objects and the torch-mlir model path yet",
+          "tags": [
+            "kernel"
+          ]
+        },
+        {
+          "action_id": "kernel.c_replace",
+          "kind": "kernel",
+          "description": "replace a model op with a C/C++ kernel",
+          "stage": "c-kernel",
+          "params": [],
+          "scope": "module",
+          "numeric_change": "none",
+          "requires_runtime": [
+            "kernel-binding"
+          ],
+          "constraints": {},
+          "support": "unavailable",
+          "validation": "unvalidated",
+          "evidence": "ABI integration test not done",
+          "tags": [
+            "kernel"
+          ]
+        }
+      ],
+      "measurement": {
+        "e2e": "unavailable",
+        "tier": "device",
+        "e2e_boundary": "(none yet) plan \u00a79.1 request boundary needs a session-reusing device runner",
+        "units": "us",
+        "op_profile": "unavailable",
+        "counters": [],
+        "notes": "launcher Perf: field is an in-process DSP loop average, not the plan's E2E metric"
+      },
+      "execution": {
+        "target_codegen": true,
+        "executes_on": "device"
+      },
+      "compatible_runtimes": [
+        "hexagon-standalone-launcher"
+      ],
+      "device_profile": {
+        "arch": null,
+        "serial_set": false,
+        "state": null
+      },
+      "environment": {
+        "HEXAGON_ARCH_VERSION": null,
+        "HEXAGON_SDK_ROOT": null,
+        "HEXAGON_TOOLS": null,
+        "HEXKL_ROOT": null,
+        "ANDROID_SERIAL": null,
+        "runtime_features": [],
+        "toolchain_importable": false,
+        "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+        "adb": null
+      },
+      "notes": [
+        "actions are unvalidated until compiled and run with this toolchain on this device"
+      ]
+    },
+    "policy": {
+      "policy_id": "e2e-paired-v0",
+      "warmup": 20,
+      "pairs": 10,
+      "requests_per_block": 20,
+      "min_median_gain": 0.03,
+      "ci_level": 0.95,
+      "ci_lower_gt": 1.0,
+      "max_p95_regression": 0.02,
+      "max_regression_shape": 0.02,
+      "bootstrap": 2000,
+      "seed": 0
+    }
+  }
+}

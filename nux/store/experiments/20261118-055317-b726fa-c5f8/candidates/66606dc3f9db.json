@@ -1,0 +1,80 @@
+{
+  "experiment_id": "20261118-055317-b726fa-c5f8",
+  "candidate": {
+    "action_id": "path.hexkl_matmul",
+    "kind": "lowering_path",
+    "params": {
+      "mode": "micro"
+    },
+    "hypothesis": "HMX matmul; expected filtered: fp32 model, HexKL needs f16",
+    "expected_savings": "",
+    "possible_costs": "",
+    "scope": "module",
+    "parent_id": "c7db5b495d0f",
+    "payload_files": {},
+    "candidate_id": "66606dc3f9db"
+  },
+  "backend_id": "hexagon-mlir",
+  "workload_id": "deit-tiny",
+  "contract_id": "deit-tiny-fp32-logits-v0",
+  "state": "rejected",
+  "failure": "unsupported",
+  "failure_detail": "dtype float32 not in ['float16']",
+  "stages": [
+    {
+      "stage": "proposed",
+      "status": "passed",
+      "detail": "",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "capability",
+      "status": "failed",
+      "detail": "dtype float32 not in ['float16']",
+      "seconds": null,
+      "artifacts": {}
+    }
+  ],
+  "requested_config": {
+    "mode": "micro"
+  },
+  "effective_config": {},
+  "ir_hashes": {},
+  "artifact_hashes": {},
+  "correctness": {},
+  "measurement": null,
+  "decision": null,
+  "toolchain_lock": {
+    "python": "3.13.18",
+    "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+    "torch": "2.15.0",
+    "torch-mlir": "20261101",
+    "transformers": "5.23.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "hexagon": {
+      "toolchain_importable": false,
+      "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+      "HEXAGON_ARCH_VERSION": null,
+      "HEXAGON_SDK_ROOT": null,
+      "HEXAGON_TOOLS": null,
+      "HEXKL_ROOT": null,
+      "adb": null,
+      "device_state": null,
+      "source_rev_assumed": "9ec15e8"
+    }
+  },
+  "backend_traits": {
+    "executes_on": "device",
+    "target_codegen": true,
+    "measurement_tier": "device",
+    "e2e": "unavailable",
+    "acceptance_capable": false
+  },
+  "cache_key": "",
+  "cache_hit": false,
+  "created_at": "2026-11-18T05:53:22+0000",
+  "schema_version": "nux-schema-0.3"
+}

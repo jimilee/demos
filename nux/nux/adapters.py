@@ -51,6 +51,9 @@ class Artifact:
     pending: str = ""  # why a later stage could not run in this environment (e.g. toolchain_unavailable)
     twin: object = None  # optional host-executable build of the EXACT IR given to the target codegen
     twin_note: str = ""
+    roles: dict = field(default_factory=dict)  # file name -> primary | source | intermediate (artifact store)
+    cache_meta: dict = field(default_factory=dict)  # what load_artifact needs to rehydrate (func name, types, ...)
+    cache_hit: bool = False
     log: str = ""
 
 
@@ -66,6 +69,16 @@ class CompilerAdapter(abc.ABC):
     def integrate_candidate(self, workload, artifact: Artifact) -> Artifact:
         """Produce the full-model executable artifact (kernel binding etc.)."""
         return artifact
+
+    def load_artifact(self, workload, entry: dict, purpose: str) -> "Artifact | None":
+        """Optional: rehydrate an artifact from an artifact-store entry (entry['paths'], entry['meta']).
+
+        purpose: "evaluate" (the result will go through the evidence stages again) or "restore"
+        (rebuilding the best-known artifact). Return None to treat the entry as a miss, e.g. when a
+        file the purpose needs was dropped by the retention policy. Backends whose artifacts live only
+        in memory do not implement this and are never cached.
+        """
+        return None
 
 
 class RuntimeAdapter(abc.ABC):

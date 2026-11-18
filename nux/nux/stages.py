@@ -35,6 +35,7 @@ class CandidateContext:
     failure: Failure | None = None
     detail: str = ""
     done: bool = False
+    key: str | None = None  # artifact-store key (from compile inputs)
     record: object = None
     record_path: object = None
 
@@ -77,6 +78,16 @@ def capability(ctl, ctx):
 
 def compile_(ctl, ctx):
     t = time.perf_counter()
+    ctx.key = ctl.compile_key(ctx.cand, None if ctx.baseline else ctl.best_key_value)
+    store = ctl.artifacts
+    if store is not None:
+        entry = store.get(ctx.key)
+        art = ctl.b.compiler.load_artifact(ctl.w, entry, "evaluate") if entry else None
+        if art is not None:
+            art.cache_hit = True
+            ctx.art = art
+            return ctx.add("compile", Evidence.PASSED, f"artifact-store hit {ctx.key[:12]}", time.perf_counter() - t,
+                           {"kind": art.kind, "cache": "hit"})
     try:
         art = (ctl.b.compiler.capture_baseline(ctl.w) if ctx.baseline else
                ctl.b.compiler.compile_candidate(ctl.w, ctx.cand, ctl.best_artifact))
@@ -86,8 +97,16 @@ def compile_(ctl, ctx):
         ctx.add("compile", Evidence.FAILED, str(e), time.perf_counter() - t)
         fail = Failure(e.failure) if e.failure in Failure._value2member_map_ else Failure.COMPILE_FAILURE
         return ctx.stop(State.REJECTED, fail, str(e))
+    if store is not None and art.roles and not art.pending:
+        moved = store.put(ctx.key, {n: art.files[n] for n in art.roles if n in art.files}, art.roles,
+                          {"backend_id": ctl.b.backend_id, "cache_meta": art.cache_meta, "ir_hashes": art.ir_hashes,
+                           "artifact_hashes": art.artifact_hashes, "effective_config": art.effective_config,
+                           "requested_config": art.requested_config, "provenance": art.provenance,
+                           "target_compiled": art.target_compiled, "kind": art.kind, "candidate": asdict(ctx.cand)})
+        art.files.update(moved)
     ctx.art = art
-    ctx.add("compile", Evidence.PASSED, art.log, time.perf_counter() - t, {"kind": art.kind, "provenance": art.provenance[-3:]})
+    ctx.add("compile", Evidence.PASSED, art.log, time.perf_counter() - t,
+            {"kind": art.kind, "provenance": art.provenance[-3:], "cache": "miss" if store is not None else "disabled"})
 
 
 def ir_verify(ctl, ctx):

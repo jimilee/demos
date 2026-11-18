@@ -20,14 +20,18 @@ from __future__ import annotations
 
 from dataclasses import asdict, replace
 
-from . import stages, stats
+import hashlib
+import json
+
+from . import frontend, stages, stats
+from .artifact_store import ArtifactStore, compile_key
 from .schema import Candidate, CandidateRecord, Evidence, Failure, State
-from .store import Store, cache_key
+from .store import Store
 
 
 class Controller:
     def __init__(self, bundle, workload, contract, store: Store, policy: stats.Policy, config: dict,
-                 corpus=None, toolchain_lock=None):
+                 corpus=None, toolchain_lock=None, artifacts: ArtifactStore | None = None):
         self.b, self.w, self.c, self.store, self.policy, self.cfg = bundle, workload, contract, store, policy, config
         self.corpus = corpus if corpus is not None else workload.corpus()
         self.lock = toolchain_lock or {}
@@ -43,6 +47,22 @@ class Controller:
         self.best_artifact = None
         self.best_session = None
         self.best_record = None
+        self.artifacts = artifacts  # None disables the artifact store (no lookups, nothing kept)
+        wl = workload.lock()
+        self._workload_hash = hashlib.sha256(json.dumps(wl, sort_keys=True, default=str).encode()).hexdigest()
+
+    # ---- artifact keys ------------------------------------------------------
+    @property
+    def best_key_value(self):
+        return self.best_record.cache_key if self.best_record else None
+
+    def compile_key(self, cand: Candidate, parent_key: str | None) -> str:
+        m = self.b.manifest
+        return compile_key(backend=self.b.backend_id, compiler=m.compiler_profile, runtime=m.runtime_profile,
+                           arch=m.device_profile.get("arch"), frontend=frontend.frontend_version(), toolchain=self.lock,
+                           workload=self._workload_hash, parent=parent_key or "root",
+                           candidate={"action_id": cand.action_id, "kind": cand.kind, "params": cand.params,
+                                      "scope": cand.scope, "payload": cand.content_hash() if cand.payload_files else None})
 
     # ---- derived policy ---------------------------------------------------
     @property
@@ -71,12 +91,17 @@ class Controller:
             artifact_hashes=dict(art.artifact_hashes) if art else {}, correctness=ctx.corr or {},
             measurement=stages.measurement_for_record(ctx.meas), decision=ctx.decision,
             toolchain_lock=self.lock, backend_traits=self.b.manifest.traits(),
-            cache_key=cache_key(backend=self.b.backend_id, compiler=self.b.manifest.compiler_profile,
-                                runtime=self.b.manifest.runtime_profile, ir=art.ir_hashes if art else None, cfg=eff,
-                                toolchain=self.lock, arch=self.b.manifest.device_profile.get("arch"), meta=self.w.meta()))
+            cache_key=ctx.key or "", cache_hit=bool(art and art.cache_hit))
         path = self.store.write_record(rec)
         ctx.record, ctx.record_path = rec, path
+        if self.artifacts is not None and ctx.key:
+            self.artifacts.after_record(ctx.key, rejected=ctx.rejected)
         return rec
+
+    def _keep(self, ctx, reason):
+        if self.artifacts is not None and ctx.key:
+            self.artifacts.pin(ctx.key, reason)
+            self.artifacts.gc()
 
     def _rel(self, path):
         try:
@@ -98,7 +123,8 @@ class Controller:
             note = ("baseline is the best-known artifact until a device-accepted candidate exists" if ctx.session is not None
                     else f"baseline stopped at {rec.state}: {rec.failure_detail}")
             self.store.set_best(self.key, {"record": self._rel(ctx.record_path), "chain": [], "state": rec.state,
-                                           "mode": self.mode, "note": note})
+                                           "mode": self.mode, "note": note, "artifact_key": ctx.key})
+            self._keep(ctx, f"baseline:{self.key}")
         return rec
 
     def run_candidate(self, cand: Candidate):
@@ -116,13 +142,26 @@ class Controller:
             prev = self.store.get_best(self.key) or {"chain": []}
             self.best_artifact, self.best_session, self.best_record = ctx.art, ctx.session, rec
             self.store.set_best(self.key, {"record": self._rel(ctx.record_path), "chain": prev["chain"] + [rec.candidate],
-                                           "state": rec.state, "mode": self.mode})
+                                           "state": rec.state, "mode": self.mode, "artifact_key": ctx.key})
+            self._keep(ctx, f"best:{self.key}")
+        elif self.artifacts is not None:
+            self.artifacts.gc()
         return rec
 
     def restore_best(self):
-        """Rebuild the best artifact from the stored chain (after restart)."""
-        best = self.store.get_best(self.key)
-        self.best_artifact = self.b.compiler.capture_baseline(self.w)
-        for cd in (best or {}).get("chain", []):
-            self.best_artifact = self.b.compiler.compile_candidate(self.w, Candidate(**cd), self.best_artifact)
-        return self.best_artifact
+        """Rebuild the best artifact after a restart: from the artifact store when the pinned entries are
+        intact, otherwise by replaying the stored chain through the compiler. Returns (artifact, source)."""
+        best = self.store.get_best(self.key) or {"chain": []}
+        chain = [Candidate("baseline", "baseline")] + [Candidate(**cd) for cd in best.get("chain", [])]
+        key, art, source = None, None, "store"
+        for i, c in enumerate(chain):
+            key = self.compile_key(c, key if i else None)
+            entry = self.artifacts.get(key) if self.artifacts is not None else None
+            loaded = self.b.compiler.load_artifact(self.w, entry, "restore") if entry else None
+            if loaded is not None:
+                art = loaded
+                continue
+            source = "recompiled"
+            art = self.b.compiler.capture_baseline(self.w) if i == 0 else self.b.compiler.compile_candidate(self.w, c, art)
+        self.best_artifact = art
+        return art, source

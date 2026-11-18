@@ -134,3 +134,8 @@ def test_no_vendor_branching_in_common_layers():
         code = "\n".join(l for l in src.splitlines() if not l.strip().startswith("#"))
         code = re.sub(r'"""[\s\S]*?"""', "", code)
         assert not pat.search(code), f"vendor-specific reference in common module nux/{name}.py: {pat.search(code).group(0)}"
+
+
+def test_same_config_twice_in_one_second_does_not_collide(tmp_path):
+    s = Store(tmp_path)
+    assert s.new_experiment({"a": 1}, {}) != s.new_experiment({"a": 1}, {})

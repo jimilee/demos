@@ -138,7 +138,8 @@ class CandidateRecord:
     decision: dict | None = None
     toolchain_lock: dict = field(default_factory=dict)
     backend_traits: dict = field(default_factory=dict)  # executes_on / target_codegen / measurement tier
-    cache_key: str = ""
+    cache_key: str = ""  # artifact-store key, computed from compile INPUTS (backend, toolchain, parent key, candidate)
+    cache_hit: bool = False
     created_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%dT%H:%M:%S%z"))
     schema_version: str = SCHEMA_VERSION
 

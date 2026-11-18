@@ -96,8 +96,8 @@ def test_acceptance_and_restore_path_with_device_fixture(tmp_path):
     assert lose.state != "accepted"
     best = c.store.get_best(c.key)
     assert [x["params"]["tile"] for x in best["chain"]] == [32]
-    art = c.restore_best()
-    assert art.payload["params"]["tile"] == 32
+    art, source = c.restore_best()
+    assert art.payload["params"]["tile"] == 32 and source == "recompiled"  # mock artifacts are not cacheable
 
 
 def test_no_measurement_without_policy_in_prepare_mode(tmp_path):

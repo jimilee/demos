@@ -40,6 +40,18 @@ def _apply(parent_mod, candidate, cfg):
 
 # --------------------------------------------------------------------- host
 HOST_ID = "llvm-aot-host"
+TWIN_NOTE = "x86-64 build of the same downgraded LLVM IR given to the Hexagon backend"
+
+
+def _ir_meta(mod):
+    return {"func_name": mod.func_name, "stage": mod.stage, "result_type": aot.result_type(mod)}
+
+
+def _load_ir(path, meta):
+    from pathlib import Path
+
+    cm = meta["cache_meta"]
+    return H.MLIRModule(Path(path).read_bytes(), cm["func_name"], cm["stage"], list(meta.get("provenance", [])))
 
 
 def host_manifest():
@@ -75,12 +87,26 @@ class HostAOTCompiler(CompilerAdapter):
             lib = aot.AOTLibrary(d / f"lib{mod.func_name}.so", mod.func_name, aot.result_type(mod))
         except Exception as e:  # noqa: BLE001
             raise CompileFailure(f"AOT build failed: {e}") from e
+        (d / "source.mlirbc").write_bytes(mod.bytecode)
         return Artifact(HOST_ID, "shared_library", payload=lib, ir=mod, ir_hashes=artifact.ir_hashes,
-                        files={"object": str(d / f"{mod.func_name}.o"), "shared_library": str(d / f"lib{mod.func_name}.so")},
+                        files={"object": str(d / f"{mod.func_name}.o"), "shared_library": str(d / f"lib{mod.func_name}.so"),
+                               "source_ir": str(d / "source.mlirbc")},
+                        roles={"object": "intermediate", "shared_library": "primary", "source_ir": "source"},
+                        cache_meta=_ir_meta(mod),
                         artifact_hashes={"object": o["sha256"], "shared_library": so["sha256"]},
                         requested_config=artifact.requested_config, effective_config=artifact.effective_config,
                         provenance=artifact.provenance + ["AOT: MLIR own LLVM -> x86-64 .o -> cc -shared"],
                         log=f"aot object {o['seconds']}s {o['bytes']} B")
+
+    def load_artifact(self, workload, entry, purpose):
+        p, m = entry["paths"], entry["meta"]
+        if "shared_library" not in p or "source_ir" not in p:
+            return None
+        mod = _load_ir(p["source_ir"], m)
+        lib = aot.AOTLibrary(p["shared_library"], mod.func_name, m["cache_meta"]["result_type"])
+        return Artifact(HOST_ID, "shared_library", payload=lib, ir=mod, ir_hashes=m["ir_hashes"], files=dict(p),
+                        artifact_hashes=m["artifact_hashes"], requested_config=m["requested_config"],
+                        effective_config=m["effective_config"], provenance=m["provenance"], log="artifact-store hit")
 
 
 class HostAOTRuntime(RuntimeAdapter):
@@ -157,16 +183,36 @@ class HexAOTCompiler(CompilerAdapter):
         except Exception as e:  # noqa: BLE001
             raise CompileFailure(f"{type(e).__name__}: {str(e)[:600]}") from e
         twin_lib = aot.AOTLibrary(d / "libtwin.so", mod.func_name, aot.result_type(mod))
-        return Artifact(HEX_ID, "object", payload=None, ir=mod, twin=twin_lib,
-                        twin_note="x86-64 build of the same downgraded LLVM IR given to the Hexagon backend",
+        (d / "source.mlirbc").write_bytes(mod.bytecode)
+        return Artifact(HEX_ID, "object", payload=None, ir=mod, twin=twin_lib, twin_note=TWIN_NOTE,
                         files={"llvm_ir": str(d / "model.ll"), "hexagon_object": str(d / f"{mod.func_name}_hexagon.o"),
-                               "twin_x86_object": str(d / "twin_x86.o")},
+                               "twin_x86_object": str(d / "twin_x86.o"), "twin_so": str(d / "libtwin.so"),
+                               "source_ir": str(d / "source.mlirbc")},
+                        roles={"llvm_ir": "intermediate", "hexagon_object": "primary", "twin_x86_object": "intermediate",
+                               "twin_so": "intermediate", "source_ir": "source"},
+                        cache_meta=_ir_meta(mod),
                         ir_hashes={mod.stage: mod.sha256, "llvm-ir-downgraded": H.sha(ll)},
                         artifact_hashes={"hexagon_object": hexo["sha256"], "twin_x86_object": twin["sha256"]},
                         requested_config=requested, effective_config=cfg, target_compiled=True,
                         provenance=prov + [f"downgrade rewrites {counts}", f"llvm.maximum/minimum expanded: {n_mm}",
                                            hexo["cmd"]],
                         log=f"hexagon .o {hexo['bytes']} B in {hexo['seconds']}s ({hexo['file']})")
+
+
+    def load_artifact(self, workload, entry, purpose):
+        p, m = entry["paths"], entry["meta"]
+        if "hexagon_object" not in p or "source_ir" not in p:
+            return None
+        twin = None
+        if "twin_so" in p:
+            twin = aot.AOTLibrary(p["twin_so"], m["cache_meta"]["func_name"], m["cache_meta"]["result_type"])
+        elif purpose == "evaluate":
+            return None  # twin dropped by retention policy: re-evaluation needs it, so treat as a miss
+        return Artifact(HEX_ID, "object", payload=None, ir=_load_ir(p["source_ir"], m), twin=twin,
+                        twin_note=TWIN_NOTE if twin else "", files=dict(p), ir_hashes=m["ir_hashes"],
+                        artifact_hashes=m["artifact_hashes"], requested_config=m["requested_config"],
+                        effective_config=m["effective_config"], target_compiled=True, provenance=m["provenance"],
+                        log="artifact-store hit")
 
 
 class HexAOTRuntime(RuntimeAdapter):

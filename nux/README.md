@@ -36,7 +36,8 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │   ├── evaluator.py                   # 정확성 검사, 측정 적격성, 채택 판정 (읽기 전용 규칙)
 │   ├── stats.py                       # paired block 통계, bootstrap CI, Policy(3% / CI>1.0 / p95 2%)
 │   ├── contract.py                    # 정확성 계약 (deit-tiny-fp32-logits-v0, toy-fp32-v0)
-│   ├── store.py                       # 불변 기록, backend별 best 격리, cache key, results.tsv
+│   ├── store.py                       # 불변 기록, backend별 best 격리, results.tsv
+│   ├── artifact_store.py              # content-addressed 산출물 저장소 + 보존 정책 (pin, 기각 삭제, intermediate 삭제, LRU 5 GB)
 │   ├── frontend.py                    # 공유 front end: workload → 검증된 linalg IR (프로세스 캐시). backend는 여기서만 baseline IR을 얻는다
 │   ├── transforms.py                  # 공유 IR recipe 적용·검증 (오류 계약: Unsupported / CompileFailure), recipe capability 생성
 │   ├── profilers.py                   # 재사용 profiler (HostWallClockProfiler, NoProfiler)
@@ -97,16 +98,17 @@ nux/                                   # 프로젝트 루트 (demos/nux)
 │       └── candidates/<cand>.json     # 후보별 불변 기록 (stage·IR hash·정확성·측정·판정)
 ├── store_mock/                        # A3 mock 실험 기록 (같은 구조)
 │
-├── tests/                             # pytest (54개)
+├── tests/                             # pytest (61개)
 │   ├── conftest.py
 │   ├── test_core.py                   # capability 필터, 통계, 적격성, 계약, 불변 저장, 벤더 분기 금지
 │   ├── test_controller.py             # mock 2종 + host + hexagon 동일 controller, 채택·복원(테스트 전용 device fixture)
 │   ├── test_mlir_and_deit.py          # recipe 의미 보존(host JIT), reproducer, DeiT strict load·corpus
 │   ├── test_aot.py                    # downgrade 규칙, max/min bit-exact, host AOT, Hexagon object + twin, NaN 회귀
 │   ├── test_architecture.py           # 의존 방향 규칙(AST), transforms 오류 계약, recipe 실패 회귀, stage 순서·기록 1회·ABBA
-│   └── test_importers.py              # QNN JSON / Chrome Trace 파싱, 이름 매핑, hint→seed (합성 fixture)
+│   ├── test_importers.py              # QNN JSON / Chrome Trace 파싱, 이름 매핑, hint→seed (합성 fixture)
+│   └── test_artifact_store.py         # hash 검증·손상 시 miss, 보존 정책, LRU+pin, 재시작 시 재사용·복원
 │
-└── .cache/                            # (gitignore) HF 가중치 snapshot, linalg bytecode, AOT 산출물(.ll/.o/.so)
+└── .cache/                            # (gitignore) HF 가중치, linalg bytecode, artifacts/ (산출물 저장소), aot/ (작업 디렉토리)
 ```
 
 ### 1.2 계층 구조
@@ -311,7 +313,7 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 | A2 (LLVM Hexagon) | `python -m nux smoke --backend llvm-aot-hexagon` | LayerNorm / encoder block / 전체 모델 모두 `target_compile=passed` |
 | DeiT AOT 실험 | `python -m nux run --config configs/deit_aot_{host,hexagon}.json` | host: baseline·recipe 2개 `host_correct`. Hexagon: baseline·recipe 2개·`llc -O3` 모두 **`target_compiled`**, twin 정확성 통과, device 단계 pending |
 | 벤더 입력 | `python -m nux export-onnx` | DeiT ONNX 489 nodes, onnxruntime으로 corpus 13개 입력 max abs err 1.0e-5 |
-| 테스트 | `python -m pytest -q tests` | 54 passed |
+| 테스트 | `python -m pytest -q tests` | 61 passed |
 
 ### DeiT `collapse_shape` 이슈 관련 관찰 (계획 §13)
 
@@ -322,6 +324,43 @@ prepare 모드에서의 측정은 config의 `informational_measurement: true`일
 * host에서는 이 fused IR이 verifier를 통과하고 결과도 정확하다(위 표). 보고된 assertion은
   아직 **재현하지 못했다**. Hexagon 파이프라인(DropUnitDims 등)에 이 IR을 넣어 재현을 시도하는 것이
   toolchain이 생기면 첫 작업이다.
+
+## 2.4 산출물 저장소와 보존 정책 (`nux/artifact_store.py`)
+
+컴파일 산출물을 **컴파일 입력으로 만든 key**로 저장해 재사용한다. key 구성 요소는 다음과 같다.
+
+* backend와 compiler/runtime profile
+* toolchain lock과 arch
+* front-end 버전과 workload lock
+* 부모 artifact key
+* 후보 내용
+
+기록의 `cache_key`가 이 key이고, `cache_hit`은 재사용 여부다.
+
+| 파일 역할 | 예 | 보존 |
+|---|---|---|
+| `primary` | AOT `.so`, Hexagon `.o`, Hexagon-MLIR launcher 입력 IR | 항목이 남아 있는 동안 유지 |
+| `source` | 입력 linalg IR bytecode | 항목이 남아 있는 동안 유지 (재현용) |
+| `intermediate` | LLVM IR `.ll`(DeiT 151 MB), twin `.o`/`.so` | **기록 직후 삭제** (재생성 가능) |
+
+기본 정책 (config의 `artifact_cache`로 변경 가능):
+
+* baseline과 채택된 best 체인은 **pin**하고 지우지 않는다.
+* 기각된 후보의 산출물은 기록 직후 삭제한다.
+* 전체 **5 GB** 상한. 넘으면 pin되지 않은 항목을 오래 안 쓴 순서로 삭제한다.
+* 꺼낼 때마다 모든 파일의 sha256을 검증한다. 불일치하면 삭제하고 miss로 처리한다.
+
+backend는 선택적으로 `load_artifact(entry, purpose)`를 구현해 저장된 파일로 artifact를 다시 만든다.
+구현하지 않은 backend(in-memory JIT, mock)는 캐시를 쓰지 않는다. 재시작 후 `restore_best()`는
+pin된 항목이 온전하면 저장소에서, 아니면 체인을 재컴파일해 best를 복원한다.
+
+| 측정 (DeiT-tiny) | 첫 실행 | 같은 config 재실행 |
+|---|---|---|
+| `deit_aot_host` | 108 s | **32 s** (baseline·후보 모두 cache hit, 정확성 검사만 다시 수행) |
+| `deit_aot_hexagon` | 300 s | 304 s: twin이 정책상 지워져, 재평가 시 의미 재검증을 위해 재컴파일 (의도된 miss) |
+
+정리 명령: `python -m nux cache stats|gc|clean-workdirs`. 이 세션에서 이전 작업 디렉토리 94개(4.83 GB)를 정리했다.
+`aot`·`smoke` 보고서 명령은 끝나면 자기 작업 디렉토리를 지운다 (`--keep-workdir`로 유지).
 
 ## 2.5 AOT 컴파일
 

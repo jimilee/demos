@@ -190,11 +190,28 @@ class Compiler(CompilerAdapter):
             p.write_bytes(bytes(b))
             files[f"obj{i}"] = str(p)
             hashes[f"obj{i}"] = H.sha(bytes(b))
+        (work / "source.mlirbc").write_bytes(mod.bytecode)
+        files["source_ir"] = str(work / "source.mlirbc")
+        # input_ir is read by the launcher at run time (Runtime.prepare_session), so it is primary, not intermediate
+        roles = {n: ("source" if n == "source_ir" else "primary") for n in files}
         return Artifact(BACKEND_ID, "object", payload=mod, files=files, ir_hashes={mod.stage: mod.sha256},
-                        artifact_hashes=hashes, requested_config=requested,
+                        artifact_hashes=hashes, requested_config=requested, roles=roles,
+                        cache_meta={"func_name": mod.func_name, "stage": mod.stage},
                         effective_config={k: options[k] for k in sorted(options) if k in {o[0] for o in OPTIONS} or k in cfg},
                         provenance=prov + [f"translate_linalg_to_obj(arch=v{self.env['HEXAGON_ARCH_VERSION']})"],
                         target_compiled=True)
+
+    def load_artifact(self, workload, entry, purpose):
+        """UNVERIFIED in this environment (no toolchain): rehydrate a target-compiled artifact."""
+        p, m = entry["paths"], entry["meta"]
+        if "source_ir" not in p or not any(n.startswith("obj") for n in p) or "input_ir" not in p:
+            return None
+        cm = m["cache_meta"]
+        mod = H.MLIRModule(Path(p["source_ir"]).read_bytes(), cm["func_name"], cm["stage"], list(m.get("provenance", [])))
+        return Artifact(BACKEND_ID, "object", payload=mod, files=dict(p), ir_hashes=m["ir_hashes"],
+                        artifact_hashes=m["artifact_hashes"], requested_config=m["requested_config"],
+                        effective_config=m["effective_config"], provenance=m["provenance"], target_compiled=True,
+                        log="artifact-store hit")
 
 
 class Runtime(RuntimeAdapter):

@@ -263,6 +263,21 @@ def result_type(mod: H.MLIRModule) -> str:
         return str(ir.FunctionType(ir.TypeAttr(f.attributes["function_type"]).value).results[0])
 
 
+def workdir_base() -> Path:
+    return Path(os.environ.get("NUX_CACHE", Path(__file__).resolve().parents[1] / ".cache")) / "aot"
+
+
+def cleanup_workdirs(paths) -> int:
+    """Remove the AOT work directories that contain the given files (only under workdir_base())."""
+    base = workdir_base().resolve()
+    n = 0
+    for d in {Path(p).resolve().parent for p in paths}:
+        if base in d.parents and d.exists():
+            shutil.rmtree(d, ignore_errors=True)
+            n += 1
+    return n
+
+
 def workdir(prefix="nux_aot_"):
     base = Path(os.environ.get("NUX_CACHE", Path(__file__).resolve().parents[1] / ".cache")) / "aot"
     base.mkdir(parents=True, exist_ok=True)

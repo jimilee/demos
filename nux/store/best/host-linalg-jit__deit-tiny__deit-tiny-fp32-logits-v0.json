@@ -1,7 +1,8 @@
 {
-  "record": "/home/user/demos/nux/store/experiments/20261118-044927-f094c5/candidates/c7db5b495d0f.json",
+  "record": "experiments/20261118-055108-f094c5-340c/candidates/c7db5b495d0f.json",
   "chain": [],
   "state": "host_correct",
   "mode": "prepare",
-  "note": "baseline is the best-known artifact until a device-accepted candidate exists"
+  "note": "baseline is the best-known artifact until a device-accepted candidate exists",
+  "artifact_key": "f357f98053cb2fc93bc963d12e9e115a"
 }

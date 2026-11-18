@@ -10,6 +10,7 @@
   export-onnx [--id ...]      vendor input artifact: ONNX export validated with onnxruntime
   import-profile ...          vendor profile (e.g. QNN JSON from qnn-profile-viewer) -> hints -> seed configs
   run --config C              controller: baseline + candidates (prepare mode unless device E2E is admissible)
+  cache stats|gc|clean-workdirs  artifact store (.cache/artifacts) and leftover AOT work directories
   status                      best-known state per (backend, workload, contract)
 """
 from __future__ import annotations
@@ -202,6 +203,9 @@ def cmd_smoke(a):
             r["target_compile"] = ("pending: " + art.pending) if art.pending else (
                 "passed" if art.target_compiled else "not a target backend")
             r["artifact_hashes"] = art.artifact_hashes
+            from . import aot as _aot
+
+            _aot.cleanup_workdirs(art.files.values())  # report-only build: do not leave .ll/.o behind
         except Exception as e:  # noqa: BLE001
             r["target_compile"] = f"failed: {type(e).__name__}: {e}"
         rows.append(r)
@@ -277,6 +281,9 @@ def cmd_aot(a):
         print(f"[llc {tgt}] {entry['file']} {entry['bytes']} B {entry['seconds']}s"
               + (f" ok={entry['correctness']['ok']}" if "correctness" in entry else ""))
     _w(REPORTS / f"aot_{a.id}.json", rep)
+    if not a.keep_workdir:
+        shutil.rmtree(d, ignore_errors=True)
+        print(f"removed work directory {d.relative_to(ROOT)} (use --keep-workdir to keep .ll/.o/.so)")
 
 
 def cmd_export_onnx(a):
@@ -314,6 +321,7 @@ def cmd_import_profile(a):
 def cmd_run(a):
     from . import contract as C
     from . import registry, stats
+    from .artifact_store import ArtifactPolicy, ArtifactStore
     from .controller import Controller
     from .schema import Candidate
     from .store import Store
@@ -332,14 +340,43 @@ def cmd_run(a):
         corpus = keep
     b = registry.resolve(cfg)
     pol = stats.Policy(**cfg.get("policy", {}))
+    ac = cfg.get("artifact_cache", {})
+    artifacts = None if ac.get("enabled", True) is False else ArtifactStore(
+        ROOT / ac.get("root", ".cache/artifacts"), ArtifactPolicy.from_config(ac))
     ctl = Controller(b, w, C.get(cfg["evaluation_contract_id"]), Store(ROOT / cfg.get("store", "store")), pol, cfg,
-                     corpus=corpus, toolchain_lock=toolchain_lock())
+                     corpus=corpus, toolchain_lock=toolchain_lock(), artifacts=artifacts)
     print(f"experiment {ctl.eid}: backend={b.backend_id} traits={b.traits} mode={ctl.mode}")
     r = ctl.run_baseline()
-    print(f"  baseline -> {r.state} {r.failure or ''} {r.failure_detail[:90]}")
+    hit = lambda r: " [cache hit]" if r.cache_hit else ""  # noqa: E731
+    print(f"  baseline -> {r.state} {r.failure or ''} {r.failure_detail[:90]}{hit(r)}")
     for cd in cfg.get("candidates", []):
         r = ctl.run_candidate(Candidate(**cd))
-        print(f"  {cd['action_id']:32} -> {r.state:13} {r.failure or '':20} {(r.decision or {}).get('verdict', '')} {r.failure_detail[:70]}")
+        print(f"  {cd['action_id']:32} -> {r.state:13} {r.failure or '':20} {(r.decision or {}).get('verdict', '')} "
+              f"{r.failure_detail[:70]}{hit(r)}")
+    if artifacts is not None:
+        s = artifacts.stats()
+        print(f"  artifact store: {s['entries']} entries ({s['pinned']} pinned), {s['bytes'] / 1e6:.0f} MB / "
+              f"{s['max_bytes'] / 1e9:.1f} GB cap")
+
+
+def cmd_cache(a):
+    import shutil
+
+    from . import aot
+    from .artifact_store import ArtifactPolicy, ArtifactStore
+
+    st = ArtifactStore(ROOT / ".cache" / "artifacts", ArtifactPolicy(max_bytes=int(a.max_gb * 10**9)))
+    if a.action == "gc":
+        print(json.dumps(st.gc(), indent=2))
+    elif a.action == "clean-workdirs":
+        base = aot.workdir_base()
+        dirs = [d for d in base.glob("nux_*") if d.is_dir()] if base.exists() else []
+        size = sum(f.stat().st_size for d in dirs for f in d.rglob("*") if f.is_file())
+        for d in dirs:
+            shutil.rmtree(d, ignore_errors=True)
+        print(f"removed {len(dirs)} leftover AOT work directories ({size / 1e9:.2f} GB) under {base}")
+    s = st.stats()
+    print(f"artifact store: {s['entries']} entries ({s['pinned']} pinned), {s['bytes'] / 1e6:.0f} MB, cap {s['max_bytes'] / 1e9:.1f} GB")
 
 
 def cmd_status(a):
@@ -365,6 +402,7 @@ def main(argv=None):
     s.add_argument("--contract", default="deit-tiny-fp32-logits-v0")
     s.add_argument("--targets", default="x86_64,hexagon-v73")
     s.add_argument("--inputs", type=int, default=2); s.add_argument("--stress", type=int, default=1)
+    s.add_argument("--keep-workdir", action="store_true")
     s = sub.add_parser("export-onnx"); s.add_argument("--id", default="deit-tiny")
     s.add_argument("--contract", default="deit-tiny-fp32-logits-v0")
     s = sub.add_parser("import-profile")
@@ -377,6 +415,8 @@ def main(argv=None):
     s.add_argument("--precision", default="unknown", help="fp16 | int8 | ... (vendor build precision)")
     s = sub.add_parser("run"); s.add_argument("--config", required=True)
     s = sub.add_parser("status"); s.add_argument("--store", default="store")
+    s = sub.add_parser("cache"); s.add_argument("action", choices=["stats", "gc", "clean-workdirs"])
+    s.add_argument("--max-gb", type=float, default=5.0)
     a = ap.parse_args(argv)
     globals()[f"cmd_{a.cmd.replace('-', '_')}"](a)
 

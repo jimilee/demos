@@ -1,0 +1,212 @@
+{
+  "experiment_id": "20261118-055103-1b8a83-9eba",
+  "candidate": {
+    "action_id": "baseline",
+    "kind": "baseline",
+    "params": {},
+    "hypothesis": "backend defaults",
+    "expected_savings": "",
+    "possible_costs": "",
+    "scope": "module",
+    "parent_id": null,
+    "payload_files": {},
+    "candidate_id": "c7db5b495d0f"
+  },
+  "backend_id": "mock-mlir",
+  "workload_id": "toy-mlp",
+  "contract_id": "toy-fp32-v0",
+  "state": "host_correct",
+  "failure": null,
+  "failure_detail": "",
+  "stages": [
+    {
+      "stage": "proposed",
+      "status": "passed",
+      "detail": "",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "capability",
+      "status": "passed",
+      "detail": "baseline",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "compile",
+      "status": "passed",
+      "detail": "",
+      "seconds": 0.00043758599986176705,
+      "artifacts": {
+        "kind": "sdk_model",
+        "provenance": [],
+        "cache": "miss"
+      }
+    },
+    {
+      "stage": "host_correctness",
+      "status": "passed",
+      "detail": "max_abs_err=0 on 3 inputs",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "target_compile",
+      "status": "pending",
+      "detail": "backend has no target codegen",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "e2e",
+      "status": "pending",
+      "detail": "source=synthetic",
+      "seconds": null,
+      "artifacts": {}
+    }
+  ],
+  "requested_config": {},
+  "effective_config": {},
+  "ir_hashes": {},
+  "artifact_hashes": {},
+  "correctness": {
+    "ok": true,
+    "n_inputs": 3,
+    "n_failed": 0,
+    "max_abs_err": 0.0,
+    "failed_inputs": [],
+    "task_accuracy": "pending",
+    "splits": [
+      "tune",
+      "stress"
+    ],
+    "per_input": [
+      {
+        "input_id": "toy_0",
+        "ok": true,
+        "max_abs_err": 0.0,
+        "mean_abs_err": 0.0,
+        "top1_match": true,
+        "top5_overlap": null,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "toy_1",
+        "ok": true,
+        "max_abs_err": 0.0,
+        "mean_abs_err": 0.0,
+        "top1_match": true,
+        "top5_overlap": null,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      },
+      {
+        "input_id": "toy_3",
+        "ok": true,
+        "max_abs_err": 0.0,
+        "mean_abs_err": 0.0,
+        "top1_match": true,
+        "top5_overlap": null,
+        "nonfinite": 0,
+        "reason": null,
+        "beyond_processor_domain": false
+      }
+    ]
+  },
+  "measurement": {
+    "source": "synthetic",
+    "boundary": "SYNTHETIC mock boundary",
+    "unit": "us",
+    "blocks": [
+      [
+        996.0169651447225,
+        993.499004720418,
+        998.5955151889588,
+        1000.0954973882918,
+        996.5586986487953
+      ],
+      [
+        1008.5929202837476,
+        996.032692618152,
+        1008.3826068126423,
+        994.3545111232195,
+        1002.3801528457568
+      ],
+      [
+        1002.1822593096841,
+        996.0066768027423,
+        1003.0430515463476,
+        1003.293601366213,
+        1003.640036902165
+      ],
+      [
+        990.2555362419403,
+        991.7193190817466,
+        1000.945947622437,
+        1008.9137160478409,
+        1006.3201261830923
+      ],
+      [
+        992.2940854830958,
+        994.5550234615949,
+        996.9334640333184,
+        996.6110403490836,
+        997.2714998513582
+      ],
+      [
+        990.6871370982814,
+        993.1648302701666,
+        1005.7554601808285,
+        998.4545971916373,
+        1003.1383174239745
+      ]
+    ],
+    "instrumentation": false,
+    "conditions": {
+      "protocol": "single-v1"
+    },
+    "invalid_blocks": [],
+    "missing": [
+      "everything real"
+    ]
+  },
+  "decision": {
+    "verdict": "baseline"
+  },
+  "toolchain_lock": {
+    "python": "3.13.18",
+    "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+    "torch": "2.15.0",
+    "torch-mlir": "20261101",
+    "transformers": "5.23.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "hexagon": {
+      "toolchain_importable": false,
+      "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+      "HEXAGON_ARCH_VERSION": null,
+      "HEXAGON_SDK_ROOT": null,
+      "HEXAGON_TOOLS": null,
+      "HEXKL_ROOT": null,
+      "adb": null,
+      "device_state": null,
+      "source_rev_assumed": "9ec15e8"
+    }
+  },
+  "backend_traits": {
+    "executes_on": "host",
+    "target_codegen": false,
+    "measurement_tier": "synthetic",
+    "e2e": "supported",
+    "acceptance_capable": false
+  },
+  "cache_key": "91429a975194900e48d59d522ae7cdb8",
+  "cache_hit": false,
+  "created_at": "2026-11-18T05:51:03+0000",
+  "schema_version": "nux-schema-0.3"
+}

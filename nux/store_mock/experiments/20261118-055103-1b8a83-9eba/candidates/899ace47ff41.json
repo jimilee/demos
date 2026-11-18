@@ -1,0 +1,76 @@
+{
+  "experiment_id": "20261118-055103-1b8a83-9eba",
+  "candidate": {
+    "action_id": "path.library_matmul",
+    "kind": "lowering_path",
+    "params": {},
+    "hypothesis": "unavailable action: filtered",
+    "expected_savings": "",
+    "possible_costs": "",
+    "scope": "module",
+    "parent_id": "c7db5b495d0f",
+    "payload_files": {},
+    "candidate_id": "899ace47ff41"
+  },
+  "backend_id": "mock-mlir",
+  "workload_id": "toy-mlp",
+  "contract_id": "toy-fp32-v0",
+  "state": "rejected",
+  "failure": "unsupported",
+  "failure_detail": "action unavailable on mock-mlir: mock: not provided",
+  "stages": [
+    {
+      "stage": "proposed",
+      "status": "passed",
+      "detail": "",
+      "seconds": null,
+      "artifacts": {}
+    },
+    {
+      "stage": "capability",
+      "status": "failed",
+      "detail": "action unavailable on mock-mlir: mock: not provided",
+      "seconds": null,
+      "artifacts": {}
+    }
+  ],
+  "requested_config": {},
+  "effective_config": {},
+  "ir_hashes": {},
+  "artifact_hashes": {},
+  "correctness": {},
+  "measurement": null,
+  "decision": null,
+  "toolchain_lock": {
+    "python": "3.13.18",
+    "platform": "Linux-6.18.44-fc-v595-x86_64-with-glibc2.39",
+    "torch": "2.15.0",
+    "torch-mlir": "20261101",
+    "transformers": "5.23.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "hexagon": {
+      "toolchain_importable": false,
+      "toolchain_error": "ModuleNotFoundError: No module named 'triton.backends.qcom_hexagon_backend'",
+      "HEXAGON_ARCH_VERSION": null,
+      "HEXAGON_SDK_ROOT": null,
+      "HEXAGON_TOOLS": null,
+      "HEXKL_ROOT": null,
+      "adb": null,
+      "device_state": null,
+      "source_rev_assumed": "9ec15e8"
+    }
+  },
+  "backend_traits": {
+    "executes_on": "host",
+    "target_codegen": false,
+    "measurement_tier": "synthetic",
+    "e2e": "supported",
+    "acceptance_capable": false
+  },
+  "cache_key": "",
+  "cache_hit": false,
+  "created_at": "2026-11-18T05:51:03+0000",
+  "schema_version": "nux-schema-0.3"
+}
